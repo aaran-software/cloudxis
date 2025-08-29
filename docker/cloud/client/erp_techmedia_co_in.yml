@@ -3,9 +3,9 @@ services:
     image: cloudxis:v2
     container_name: erp_techmedia_co_in
     ports:
-      - "8005:8000"
-      - "5005:5005"
-      - "3005:3005"
+      - "8001:8000"
+      - "5001:5005"
+      - "3001:3005"
     volumes:
       - ../../../../cloud/erp_techmedia_co_in:/home/devops/cloud
     networks:
