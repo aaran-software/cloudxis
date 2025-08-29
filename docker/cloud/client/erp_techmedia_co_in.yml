@@ -1,0 +1,18 @@
+services:
+  erp_techmedia_co_in:
+    image: cloudxis:v2
+    container_name: erp_techmedia_co_in
+    ports:
+      - "8005:8000"
+      - "5005:5005"
+      - "3005:3005"
+    volumes:
+      - ../../../../cloud/erp_techmedia_co_in:/home/devops/cloud
+    networks:
+      - codexion-network
+    restart: unless-stopped
+    tty: true
+
+networks:
+  codexion-network:
+    external: true
