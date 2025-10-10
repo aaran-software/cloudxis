@@ -118,19 +118,19 @@ def create_site():
 
 
 def install_erpnext():
-    _install_app("ERPNext", "erpnext", f"https://github.com/frappe/erpnext")
+    _install_app("ERPNext", "erpnext", f"https://github.com/logicxsoftware/erpnext.git")
 
 
 def install_crm():
-    _install_app("CRM", "crm", f"https://github.com/frappe/crm")
+    _install_app("CRM", "crm", f"https://github.com/logicxsoftware/crm")
 
 
 def install_hrms():
-    _install_app("HRMS", "hrms", f"https://github.com/frappe/hrms")
+    _install_app("HRMS", "hrms", f"https://github.com/logicxsoftware/hrms")
 
 
 def install_india_compliance():
-    _install_app("India Compliance", "india_compliance", f"https://github.com/resilient-tech/india-compliance")
+    _install_app("India Compliance", "india_compliance", f"https://github.com/logicxsoftware/india-compliance")
 
 
 def _install_app(name, folder, repo):
