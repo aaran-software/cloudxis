@@ -4,8 +4,8 @@ services:
     container_name: erp_techmedia_co_in
     ports:
       - "8001:8000"
-      - "5001:5005"
-      - "3001:3005"
+      - "5001:5001"
+      - "3001:3001"
     volumes:
       - ../../../../cloud/erp_techmedia_co_in:/home/devops/cloud
     networks:
