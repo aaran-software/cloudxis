@@ -10,7 +10,8 @@ LABEL description="codexsun - Node Js + React development"
 RUN apk add --no-cache \
     bash \
     git \
-    nano
+    nano \
+    sudo
 
 # Create non-root user 'devops' and grant sudo privileges
 RUN adduser -D devops && \
