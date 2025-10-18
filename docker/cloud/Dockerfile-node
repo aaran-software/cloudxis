@@ -1,0 +1,45 @@
+# Base Image
+FROM node:22-alpine AS codexsun-cloud
+
+LABEL maintainer="codexsun"
+LABEL author="Sundar < sundar@sundar.com >"
+LABEL version="2.0"
+LABEL description="codexsun - Node Js + React development"
+
+# Install required packages
+RUN apk add --no-cache \
+    bash \
+    git \
+    nano
+
+# Create non-root user 'devops' and grant sudo privileges
+RUN adduser -D devops && \
+    echo "devops ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create working directory
+RUN mkdir -p /home/devops/cloud && \
+    chmod -R 777 /home/devops/cloud
+
+# Install pnpm as root (with correct permissions)
+USER root
+RUN npm install -g pnpm@latest --unsafe-perm=true
+
+# Fix ownership of global npm directories (for devops user)
+RUN chown -R devops:devops /usr/local/lib /usr/local/bin /home/devops
+
+# Switch to non-root user for safer runtime
+USER devops
+
+# Set working directory
+WORKDIR /home/devops/cloud
+
+# Expose dev ports
+EXPOSE 3006
+EXPOSE 5006
+
+# Use environment variables for flexibility
+ENV HOST=0.0.0.0
+ENV PORT=3006
+
+# Start the app
+CMD ["bash"]

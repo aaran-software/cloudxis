@@ -1,0 +1,18 @@
+services:
+  dev_software_com:
+    image: cloudxis:v2
+    container_name: dev_software_com
+    ports:
+      - "8001:8000"
+      - "5001:5001"
+      - "3001:3001"
+    volumes:
+      - ../../apps/devops/cloud:/home/devops/cloud
+    networks:
+      - codexion-network
+    restart: unless-stopped
+    tty: true
+
+networks:
+  codexion-network:
+    external: true
