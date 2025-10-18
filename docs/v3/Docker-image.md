@@ -1,5 +1,10 @@
 To build and run CodexSun v3 using Docker, follow these steps:
 
+### 1. Clone the repository
+```
+git clone https://github.com/aaran-software/cloudxis.git
+```
+
 ## For Frappe Instance
 
 ```
