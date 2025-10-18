@@ -91,5 +91,10 @@ sudo ln -s /etc/nginx/sites-available/demo.codexsun.com /etc/nginx/sites-enabled
 sudo certbot --nginx
 ```
 
+```
 sudo nginx -t
+```
+
+```
 sudo systemctl reload nginx
+```
