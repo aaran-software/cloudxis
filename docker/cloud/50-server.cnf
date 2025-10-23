@@ -14,6 +14,12 @@ innodb_file_format = Barracuda
 innodb_file_per_table = 1
 innodb_large_prefix = 1
 bind-address = 0.0.0.0
+max_connections = 200
+wait_timeout = 60
+interactive_timeout = 60
+thread_cache_size = 50
+table_open_cache = 4000
+innodb_buffer_pool_size = 2G
 
 # Character Set Settings
 character-set-client-handshake = FALSE
@@ -29,3 +35,4 @@ default-character-set = utf8mb4
 
 [client]
 default-character-set = utf8mb4
+connect_timeout = 30

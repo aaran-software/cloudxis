@@ -5,6 +5,12 @@ To build and run CodexSun v3 using Docker, follow these steps:
 git clone https://github.com/aaran-software/cloudxis.git
 ```
 
+### 2. create network for codexion
+
+```
+docker network create codexion-network
+```
+
 ## For Frappe Instance
 
 ```
@@ -17,11 +23,7 @@ docker build -t codexsun:v3 -f docker/cloud/Dockerfile-frappe docker/cloud
 docker build -t codexsun:v3 -f docker/cloud/Dockerfile-node docker/cloud
 ```
 
-### 2. create network for codexion
 
-```
-docker network create codexion-network
-```
 
 ### 3. create container for mariadb
 
