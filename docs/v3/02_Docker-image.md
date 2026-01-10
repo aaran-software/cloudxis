@@ -14,13 +14,13 @@ docker network create codexion-network
 ## For Frappe Instance
 
 ```
-docker build -t codexsun:v3 -f docker/cloud/Dockerfile-frappe docker/cloud
+docker build -t codexsun:v4 -f docker/cloud/Dockerfile-frappe docker/cloud
 ```
 
 ## For Node Instance
 
 ```
-docker build -t codexsun:v3 -f docker/cloud/Dockerfile-node docker/cloud
+docker build -t codexsun:v4 -f docker/cloud/Dockerfile-node docker/cloud
 ```
 
 
