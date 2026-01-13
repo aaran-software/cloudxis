@@ -3,7 +3,7 @@
 import os
 import subprocess
 
-FRAPPE_BRANCH = "16"
+FRAPPE_BRANCH = "version-16"
 SITE_NAME = "tm.software.com"
 ADMIN_PASS = "admin"
 DB_USER = "root"
