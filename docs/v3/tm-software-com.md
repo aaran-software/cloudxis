@@ -1,7 +1,7 @@
 
 ## compose docker image
 ```
-sudo docker compose -f docker/cloud/tm_software_com.yml up -d
+sudo docker compose -f docker/cloud/tm-software-com.yml up -d
 ```
 
 ```
