@@ -3,7 +3,7 @@ services:
     image: codexsun:v4
     container_name: demo_codexsun_com
     ports:
-      - "8001:8000"
+      - "8000:8000"
       - "5006:5006"
       - "3006:3006"
     volumes:
