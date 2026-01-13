@@ -4,12 +4,12 @@ import os
 import subprocess
 
 FRAPPE_BRANCH = "develop"
-SITE_NAME = "dev.software.com"
+SITE_NAME = "tm.software.com"
 ADMIN_PASS = "admin"
 DB_USER = "root"
 DB_PASS = "DbPass1@@"
 DB_HOST = "mariadb"
-DB_NAME = "dev_software_db"
+DB_NAME = "tm_software_db"
 BENCH_DIR = "/home/devops/cloud/frappe-bench"
 SUPERVISOR_CONF = "/etc/supervisor/conf.d/frappe.conf"
 EMAIL = f"admin@{SITE_NAME}"
