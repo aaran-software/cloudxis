@@ -1,6 +1,6 @@
 services:
   tm_software_com:
-    image: cloudxis:v2
+    image: cloudxis:v4
     container_name: tm_software_com
     ports:
       - "8000:8000"
