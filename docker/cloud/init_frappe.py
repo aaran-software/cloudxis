@@ -3,7 +3,7 @@
 import os
 import subprocess
 
-FRAPPE_BRANCH = "develop"
+FRAPPE_BRANCH = "16"
 SITE_NAME = "tm.software.com"
 ADMIN_PASS = "admin"
 DB_USER = "root"
@@ -118,19 +118,19 @@ def create_site():
 
 
 def install_erpnext():
-    _install_app("ERPNext", "erpnext", f"https://github.com/logicxsoftware/erpnext.git")
+    _install_app("ERPNext", "erpnext", f"https://github.com/frappe/erpnext.git")
 
 
 def install_crm():
-    _install_app("CRM", "crm", f"https://github.com/logicxsoftware/crm")
+    _install_app("CRM", "crm", f"https://github.com/frappe/crm.git")
 
 
 def install_hrms():
-    _install_app("HRMS", "hrms", f"https://github.com/logicxsoftware/hrms")
+    _install_app("HRMS", "hrms", f"https://github.com/frappe/hrms.git")
 
 
 def install_india_compliance():
-    _install_app("India Compliance", "india_compliance", f"https://github.com/logicxsoftware/india-compliance")
+    _install_app("India Compliance", "india_compliance", f"https://github.com/resilient-tech/india-compliance.git")
 
 
 def _install_app(name, folder, repo):
