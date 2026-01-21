@@ -9,7 +9,7 @@ import subprocess
 FRAPPE_BRANCH = "version-16"
 
 ERPNext_VERSION = "version-16"
-CRM_VERSION = "version-16"
+CRM_VERSION = "develop"
 HRMS_VERSION = "version-16"
 INDIA_COMPLIANCE_VERSION = "version-16"
 
