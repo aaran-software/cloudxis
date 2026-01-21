@@ -14,16 +14,8 @@ docker network create codexion-network
 ## For Frappe Instance
 
 ```
-docker build -t codexsun:v4 -f docker/cloud/Dockerfile-frappe-v2 docker/cloud
+docker build -t codexion:v5 -f docker/cloud/Dockerfile-php docker/cloud
 ```
-
-## For Node Instance
-
-```
-docker build -t codexsun:v4 -f docker/cloud/Dockerfile-node docker/cloud
-```
-
-
 
 ### 3. create container for mariadb
 
@@ -104,4 +96,19 @@ sudo nginx -t
 
 ```
 sudo systemctl reload nginx
+```
+
+### 5 To run a specific Docker Compose file
+```
+docker compose -f docker/cloud/laravel.yml up -d
+```
+
+### 6 To open soft-aaran-org in bash
+```
+docker exec -it dev_laravel_com bash
+```
+
+### 7 To get from git
+```
+git clone https://github.com/aaran-software/codexsun.git
 ```

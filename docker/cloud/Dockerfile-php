@@ -1,10 +1,15 @@
+# ===============================
+# PHP version control (future)
+# ===============================
+ARG PHP_VERSION=8.4
+
 # Base Image
-FROM node:22-alpine AS codexsun-cloud
+FROM php:${PHP_VERSION}-fpm-alpine AS codexsun-laravel
 
 LABEL maintainer="codexsun"
 LABEL author="Sundar < sundar@sundar.com >"
 LABEL version="2.0"
-LABEL description="codexsun - Node Js + React development"
+LABEL description="codexsun - Node Js + Laravel development"
 
 # Install required packages
 RUN apk add --no-cache \
@@ -20,11 +25,47 @@ RUN apk add --no-cache \
     libxml2-dev \
     libzip-dev \
     libpng-dev \
+    libxslt-dev \
     libjpeg-turbo-dev \
     freetype-dev \
     postgresql-dev \
     mariadb-connector-c-dev \
-    zlib-dev
+    sqlite-dev \
+    zlib-dev \
+    linux-headers \
+    nodejs \
+    npm
+
+
+# -----------------------------
+# PHP extensions (Laravel)
+# -----------------------------
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+        pdo_mysql \
+        pdo_pgsql \
+        mbstring \
+        bcmath \
+        exif \
+        pcntl \
+        gd \
+        zip \
+        intl \
+        xsl
+
+# -----------------------------
+# Composer
+# -----------------------------
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# -----------------------------
+# PHP recommended settings
+# -----------------------------
+RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/laravel.ini \
+ && echo "upload_max_filesize=50M" >> /usr/local/etc/php/conf.d/laravel.ini \
+ && echo "post_max_size=50M" >> /usr/local/etc/php/conf.d/laravel.ini \
+ && echo "max_execution_time=120" >> /usr/local/etc/php/conf.d/laravel.ini
+
 
 # Create non-root user 'devops' and grant sudo privileges
 RUN adduser -D devops && \
@@ -32,7 +73,7 @@ RUN adduser -D devops && \
 
 # Create working directory
 RUN mkdir -p /home/devops/cloud && \
-    chmod -R 777 /home/devops/cloud
+    chmod -R 755 /home/devops/cloud
 
 # Install pnpm as root (with correct permissions)
 USER root

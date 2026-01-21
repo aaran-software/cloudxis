@@ -1,0 +1,18 @@
+services:
+  dev_laravel_com:
+    image: codexion:v5
+    container_name: dev_laravel_com
+    ports:
+      - "7001:8000"
+      - "5001:5001"
+      - "3001:3001"
+    volumes:
+      - ../../apps/devops/cloud:/home/devops/cloud
+    networks:
+      - codexion-network
+    restart: unless-stopped
+    tty: true
+
+networks:
+  codexion-network:
+    external: true
