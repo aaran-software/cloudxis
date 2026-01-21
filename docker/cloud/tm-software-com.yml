@@ -4,8 +4,6 @@ services:
     container_name: tm_software_com
     ports:
       - "8000:8000"
-      - "5001:5001"
-      - "3001:3001"
     volumes:
       - ../../apps/devops/cloud:/home/devops/cloud
     networks:

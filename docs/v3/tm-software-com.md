@@ -1,11 +1,11 @@
 
 ## compose docker image
 ```
-sudo docker compose -f docker/cloud/tm-software-com.yml up -d
+docker compose -f docker/cloud/tm-software-com.yml up -d
 ```
 
 ```
-sudo docker exec -it tm_software_com bash
+docker exec -it tm_software_com bash
 ```
 
 # for file folder permission

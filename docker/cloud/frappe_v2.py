@@ -77,7 +77,7 @@ def bench_running():
 def confirm_bench_running():
     while not bench_running():
         Log.warn("⚠️ Bench is not running!")
-        input("Run `bench start` in another terminal and press ENTER...")
+        input("📣 Run `bench start` in another terminal and press ENTER...")
     Log.success("✅ Bench is running")
 
 
@@ -90,7 +90,7 @@ def setup_bench():
 
     if os.path.exists(BENCH_DIR):
         Log.warn("⚠️ Bench already exists")
-        if not confirm("Reinstall bench? This will delete existing data"):
+        if not confirm("🔁 Reinstall bench? This will DELETE existing data"):
             return
         run(f"rm -rf {BENCH_DIR}")
 
@@ -110,7 +110,7 @@ def create_site():
     site_path = os.path.join(BENCH_DIR, "sites", SITE_NAME)
     if os.path.exists(site_path):
         Log.warn("⚠️ Site already exists")
-        if not confirm("Drop and recreate site?"):
+        if not confirm("🔁 Drop & recreate site?"):
             return
         run(f"bench drop-site {SITE_NAME} --force", cwd=BENCH_DIR)
 
@@ -130,68 +130,70 @@ def create_site():
 
 
 # =====================================================
-# APP INSTALLATION (EXPLICIT, NO LOOPS)
+# CI / CD CHECKPOINT (MANUAL)
 # =====================================================
-def install_erpnext():
-    Log.print("📦 Installing ERPNext")
+def cicd_checkpoint(app_name):
+    Log.print(f"🚦 CI/CD checkpoint for {app_name}")
+
+    if confirm("🔄 Run migrate now?"):
+        run(f"bench --site {SITE_NAME} migrate", cwd=BENCH_DIR)
+
+    if confirm("🏗️ Run bench build?"):
+        run("bench build --force", cwd=BENCH_DIR)
+
+    if confirm("🧪 Run tests for this app?"):
+        run(
+            f"bench --site {SITE_NAME} run-tests --app {app_name}",
+            cwd=BENCH_DIR,
+            check=False
+        )
+
+    if not confirm("➡️ Continue to next app?"):
+        Log.warn("⛔ Deployment stopped by user")
+        exit(0)
+
+    Log.success(f"✅ CI/CD completed for {app_name}")
+
+
+# =====================================================
+# APP INSTALLER (INTERACTIVE)
+# =====================================================
+def install_app(name, folder, repo, branch):
+    app_path = os.path.join(BENCH_DIR, "apps", folder)
+
+    if os.path.exists(app_path):
+        Log.warn(f"⚠️ {name} already exists")
+        if not confirm(f"🔁 Re-clone {name}?"):
+            return
+        run(f"rm -rf apps/{folder}", cwd=BENCH_DIR)
+
+    if not confirm(f"📥 Install {name}?"):
+        return
+
     run(
-        f"bench get-app erpnext https://github.com/frappe/erpnext.git "
-        f"--branch {ERPNext_VERSION}",
+        f"bench get-app {folder} {repo} --branch {branch}",
         cwd=BENCH_DIR
     )
+
     confirm_bench_running()
-    run(f"bench --site {SITE_NAME} install-app erpnext", cwd=BENCH_DIR)
 
-
-def install_crm():
-    Log.print("📦 Installing CRM")
-    run(
-        f"bench get-app crm https://github.com/frappe/crm.git "
-        f"--branch {CRM_VERSION}",
-        cwd=BENCH_DIR
-    )
-    confirm_bench_running()
-    run(f"bench --site {SITE_NAME} install-app crm", cwd=BENCH_DIR)
-
-
-def install_hrms():
-    Log.print("📦 Installing HRMS")
-    run(
-        f"bench get-app hrms https://github.com/frappe/hrms.git "
-        f"--branch {HRMS_VERSION}",
-        cwd=BENCH_DIR
-    )
-    confirm_bench_running()
-    run(f"bench --site {SITE_NAME} install-app hrms", cwd=BENCH_DIR)
-
-
-def install_india_compliance():
-    Log.print("📦 Installing India Compliance")
-    run(
-        f"bench get-app india_compliance "
-        f"https://github.com/resilient-tech/india-compliance.git "
-        f"--branch {INDIA_COMPLIANCE_VERSION}",
-        cwd=BENCH_DIR
-    )
-    confirm_bench_running()
-    run(
-        f"bench --site {SITE_NAME} install-app india_compliance",
-        cwd=BENCH_DIR
-    )
+    if confirm(f"🔧 Install {name} to site {SITE_NAME}?"):
+        run(f"bench --site {SITE_NAME} install-app {folder}", cwd=BENCH_DIR)
+        cicd_checkpoint(folder)
 
 
 # =====================================================
 # BUILD + CONFIG
 # =====================================================
 def build_and_config():
-    Log.print("⚙️ Building assets")
+    Log.print("⚙️ Final build & config")
     run("bench build --force", cwd=BENCH_DIR)
     run("bench set-config -g developer_mode 1", cwd=BENCH_DIR)
     run("bench set-config -g host_name http://0.0.0.0:8000", cwd=BENCH_DIR)
 
 
 def configure_site():
-    Log.print("🔧 Applying site configs")
+    Log.print("🔧 Site configuration")
     run(f"bench --site {SITE_NAME} set-config allow_signup true", cwd=BENCH_DIR)
     run(f"bench --site {SITE_NAME} set-config cookie_samesite Lax", cwd=BENCH_DIR)
     run(f"bench --site {SITE_NAME} set-config cookie_secure true", cwd=BENCH_DIR)
@@ -231,14 +233,37 @@ if __name__ == "__main__":
     setup_bench()
     create_site()
 
-    install_erpnext()
-    install_crm()
-    install_hrms()
-    install_india_compliance()
+    install_app(
+        "ERPNext",
+        "erpnext",
+        "https://github.com/frappe/erpnext.git",
+        ERPNext_VERSION
+    )
+
+    install_app(
+        "CRM",
+        "crm",
+        "https://github.com/frappe/crm.git",
+        CRM_VERSION
+    )
+
+    install_app(
+        "HRMS",
+        "hrms",
+        "https://github.com/frappe/hrms.git",
+        HRMS_VERSION
+    )
+
+    install_app(
+        "India Compliance",
+        "india_compliance",
+        "https://github.com/resilient-tech/india-compliance.git",
+        INDIA_COMPLIANCE_VERSION
+    )
 
     build_and_config()
     configure_site()
     setup_supervisor()
 
-    Log.success("✅ Frappe stack installed successfully")
+    Log.success("✅ Frappe setup completed successfully")
     Log.print(f"🌐 Access: http://{SITE_NAME}")
