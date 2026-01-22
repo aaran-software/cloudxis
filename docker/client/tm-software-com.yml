@@ -1,14 +1,14 @@
 services:
-  tm_software_com:
-    image: codexsun:v5
-    container_name: tm_software_com
+  erp_techmedia_in:
+    image: codexion:v5
+    container_name: erp_techmedia_in
     ports:
       - "8000:8000"
       - "7000:7000"
       - "6000:6000"
       - "5000:5000"
     volumes:
-      - ../../apps/devops/cloud:/home/devops/cloud
+      - ../../../cloud/erp_techmedia_in:/home/devops/cloud
     networks:
       - codexion-network
     restart: unless-stopped
