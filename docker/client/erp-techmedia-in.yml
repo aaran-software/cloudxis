@@ -1,0 +1,19 @@
+services:
+  erp_techmedia_in:
+    image: codexion:v5
+    container_name: erp_techmedia_in
+    ports:
+      - "8000:8000"
+      - "7000:7000"
+      - "6000:6000"
+      - "5000:5000"
+    volumes:
+      - ../../../cloud/erp_techmedia_in:/home/devops/cloud
+    networks:
+      - codexion-network
+    restart: unless-stopped
+    tty: true
+
+networks:
+  codexion-network:
+    external: true
