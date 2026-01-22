@@ -179,7 +179,7 @@ def install_app(name, folder, repo, branch):
 
     if confirm(f"🔧 Install {name} to site {SITE_NAME}?"):
         run(f"bench --site {SITE_NAME} install-app {folder}", cwd=BENCH_DIR)
-        cicd_checkpoint(folder)
+        # cicd_checkpoint(folder)
 
 
 # =====================================================

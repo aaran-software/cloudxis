@@ -14,16 +14,8 @@ docker network create codexion-network
 ## For Frappe Instance
 
 ```
-docker build -t codexsun:v4 -f docker/cloud/Dockerfile-frappe-v2 docker/cloud
+docker build -t codexsun:v5 -f docker/cloud/Dockerfile docker/cloud
 ```
-
-## For Node Instance
-
-```
-docker build -t codexsun:v4 -f docker/cloud/Dockerfile-node docker/cloud
-```
-
-
 
 ### 3. create container for mariadb
 
