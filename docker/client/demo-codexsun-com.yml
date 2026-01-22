@@ -1,0 +1,19 @@
+services:
+  demo_codexsun_com:
+    image: codexion:v5
+    container_name: demo_codexsun_com
+    ports:
+      - "8006:8000"
+      - "7006:7000"
+      - "6006:6000"
+      - "5006:5000"
+    volumes:
+      - ../../../cloud/demo_codexsun_com:/home/devops/cloud
+    networks:
+      - codexion-network
+    restart: unless-stopped
+    tty: true
+
+networks:
+  codexion-network:
+    external: true
