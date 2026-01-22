@@ -1,13 +1,14 @@
 services:
-  ttt_com:
-    image: codexsun:v4
-    container_name: ttt_com
+  erp_ttt_com:
+    image: codexion:v4
+    container_name: erp_ttt_com
     ports:
-      - "8000:8000"
-      - "5001:5001"
-      - "3001:3001"
+      - "8001:8000"
+      - "7001:7000"
+      - "6001:6000"
+      - "5001:5000"
     volumes:
-      - ../../apps/devops/cloud:/home/devops/cloud
+      - ../../../cloud/erp_ttt_com:/home/devops/cloud
     networks:
       - codexion-network
     restart: unless-stopped
