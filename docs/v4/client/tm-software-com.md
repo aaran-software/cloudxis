@@ -5,7 +5,11 @@ docker compose -f docker/client/erp-techmedia-in.yml up -d
 ```
 
 ```
-docker exec -it tm_software_com bash
+erp.techmedia.in
+```
+
+```
+docker exec -it erp_techmedia_in bash
 ```
 
 # for file folder permission
