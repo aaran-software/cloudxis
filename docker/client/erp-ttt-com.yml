@@ -1,6 +1,6 @@
 services:
   erp_ttt_com:
-    image: codexion:v4
+    image: codexion:v5
     container_name: erp_ttt_com
     ports:
       - "8001:8000"
