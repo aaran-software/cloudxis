@@ -1,0 +1,19 @@
+services:
+  tm_software_com:
+    image: codexsun:v5
+    container_name: tm_software_com
+    ports:
+      - "8000:8000"
+      - "7000:7000"
+      - "6000:6000"
+      - "5000:5000"
+    volumes:
+      - ../../apps/devops/cloud:/home/devops/cloud
+    networks:
+      - codexion-network
+    restart: unless-stopped
+    tty: true
+
+networks:
+  codexion-network:
+    external: true
