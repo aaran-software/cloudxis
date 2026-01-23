@@ -26,19 +26,44 @@ sudo chown -R devops:devops .
 sudo su - devops
 ```
 
+
 ```
-git clone https://github.com/aaran-software/codexsun.git
+ cd etc/nginx/sites-available/
 ```
 
 ```
-pnpm install
-```
-```
-cd apps/backend
+sudo nano erp.thetirupurtextiles.com
 ```
 
 ```
-cp .env.example .env
+server {
+    listen 80;
+    server_name erp.thetirupurtextiles.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```
+sudo ln -s /etc/nginx/sites-available/erp.thetirupurtextiles.com /etc/nginx/sites-enabled/
+```
+
+```
+sudo certbot --nginx
+```
+
+```
+sudo nginx -t
+```
+
+```
+sudo systemctl reload nginx
 ```
 
 
