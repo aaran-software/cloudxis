@@ -78,6 +78,7 @@ pm.start_servers = 6
 pm.min_spare_servers = 4
 pm.max_spare_servers = 10
 pm.max_requests = 1000
+request_terminate_timeout = 120s
 clear_env = no
 EOF'
 """
