@@ -12,7 +12,7 @@ APP_USER = "devops"
 WEB_USER = "www-data"
 PHP_VERSION = "8.4"
 NGINX_PORT = 7001
-DOMAIN = "codexsun.local"
+DOMAIN = "techmedia.in"
 
 
 def run(cmd, cwd=None, check=True):
