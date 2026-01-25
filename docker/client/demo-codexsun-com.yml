@@ -4,9 +4,9 @@ services:
     container_name: demo_codexsun_com
     ports:
       - "8006:8000"
-      - "7006:7000"
-      - "6006:6000"
-      - "5006:5000"
+      - "7006:7001"
+      - "6006:6001"
+      - "5006:5001"
     volumes:
       - ../../../cloud/demo_codexsun_com:/home/devops/cloud
     networks:

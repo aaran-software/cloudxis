@@ -1,7 +1,7 @@
 
 ## compose docker image
 ```
-docker compose -f docker/cloud/demo_codexsun_com.yml up -d
+docker compose -f docker/client/demo-codexsun-com.yml up -d
 ```
 
 ```
@@ -37,6 +37,18 @@ cd apps/backend
 cp .env.example .env
 ```
 
+```
+rm -rf ilaravel.py
+```
 
+
+```
+nano ilaravel.py
+```
+
+
+```
+python ilaravel.py
+```
 
 
