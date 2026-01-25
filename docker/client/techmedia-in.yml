@@ -1,0 +1,18 @@
+services:
+  techmedia_in:
+    image: codexion:v5
+    container_name: techmedia_in
+    ports:
+      - "8001:8000"
+      - "7001:7001"
+      - "6001:6001"
+    volumes:
+      - ../../../cloud/techmedia_in:/home/devops/cloud
+    networks:
+      - codexion-network
+    restart: unless-stopped
+    tty: true
+
+networks:
+  codexion-network:
+    external: true
