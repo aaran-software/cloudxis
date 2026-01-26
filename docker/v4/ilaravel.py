@@ -1,118 +1,94 @@
 #!/usr/bin/env python3
+import argparse
 import subprocess
-import sys
 import os
+import sys
 from pathlib import Path
 
-APP_BASE = "/home/devops/cloud"
-APP_DIR = f"{APP_BASE}/codexsun"
-GIT_REPO = "https://github.com/sundar-aaran/cxlaravel.git"
+# ---------------- CONFIG ----------------
+BASE_DIR = Path("/home/devops/cloud")
+NGINX_AVAILABLE = Path("/etc/nginx/sites-available")
+NGINX_ENABLED = Path("/etc/nginx/sites-enabled")
 
 APP_USER = "devops"
 WEB_USER = "www-data"
 PHP_VERSION = "8.4"
-NGINX_PORT = 7001
-DOMAIN = "techmedia.in"
 
-
+# ---------------- HELPERS ----------------
 def run(cmd, cwd=None, check=True):
     print(f"\n▶ {cmd}")
-    subprocess.run(cmd, shell=True, check=check, cwd=cwd)
+    subprocess.run(cmd, shell=True, cwd=cwd, check=check)
 
+def sudo(cmd, cwd=None):
+    run(f"sudo {cmd}", cwd=cwd)
 
-def sudo(cmd, check=True):
-    run(f"sudo {cmd}", check=check)
+def ensure_root_for_nginx():
+    if os.geteuid() != 0:
+        print("⚠ nginx config requires sudo")
+        print("👉 re-run with: sudo python3 ilaravel.py ...")
+        sys.exit(1)
 
+# ---------------- APP LOGIC ----------------
+def app_dir(name):
+    return BASE_DIR / name
 
-def in_container():
-    return os.path.exists("/.dockerenv")
+def nginx_conf(name):
+    return NGINX_AVAILABLE / name
 
+# ---------------- CREATE APP ----------------
+def create_app(args):
+    ensure_root_for_nginx()
 
-def install_packages():
-    sudo("apt update")
-    sudo("apt install -y software-properties-common curl")
+    name = args.name
+    repo = args.repo
+    domain = args.domain
+    port = args.port
 
-    sudo("add-apt-repository ppa:ondrej/php -y")
-    sudo("curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -")
+    target = app_dir(name)
 
-    sudo(
-        "apt install -y "
-        "git nginx nodejs composer "
-        f"php{PHP_VERSION}-fpm php{PHP_VERSION}-cli "
-        f"php{PHP_VERSION}-mysql php{PHP_VERSION}-xml "
-        f"php{PHP_VERSION}-curl php{PHP_VERSION}-mbstring "
-        f"php{PHP_VERSION}-zip php{PHP_VERSION}-gd"
-    )
-    run("php -r \"copy('https://getcomposer.org/installer', 'composer-setup.php');\"")
-    sudo("php composer-setup.php --install-dir=/usr/local/bin --filename=composer")
-    run("php -r \"unlink('composer-setup.php');\"")
+    if target.exists():
+        print("❌ App already exists")
+        sys.exit(1)
 
-    run("composer --version")
+    print(f"\n🚀 Creating Laravel app: {name}")
 
+    # Clone
+    run(f"git clone {repo} {target}")
 
-def fix_filesystem():
-    sudo("chmod o+x /home /home/devops /home/devops/cloud")
+    # .env
+    if not (target / ".env").exists():
+        run("cp .env.example .env", cwd=target)
 
-    sudo(f"mkdir -p /var/log/php{PHP_VERSION}-fpm")
-    sudo(f"chown -R {WEB_USER}:{WEB_USER} /var/log/php{PHP_VERSION}-fpm")
+    # Permissions (build-time)
+    sudo(f"chown -R {APP_USER}:{WEB_USER} {target}")
+    sudo(f"find {target} -type d -exec chmod 775 {{}} \\;")
+    sudo(f"find {target} -type f -exec chmod 664 {{}} \\;")
 
-    sudo("mkdir -p /run/nginx /var/log/nginx")
-    sudo("chown -R root:root /run/nginx /var/log/nginx")
-    sudo("chmod 755 /run/nginx /var/log/nginx")
+    # Build
+    run("composer install --no-dev --optimize-autoloader", cwd=target)
+    run("php artisan key:generate --force", cwd=target)
+    run("php artisan storage:link", cwd=target)
 
+    if (target / "package.json").exists():
+        run("npm install", cwd=target)
+        run("npm run build", cwd=target)
 
-def clone_app():
-    os.makedirs(APP_BASE, exist_ok=True)
-    if not os.path.isdir(APP_DIR):
-        run(f"git clone {GIT_REPO} {APP_DIR}")
+    run("php artisan optimize", cwd=target)
 
+    # Runtime permissions
+    sudo(f"chown -R {WEB_USER}:{WEB_USER} {target}")
+    sudo(f"chmod -R 775 {target}/storage {target}/bootstrap/cache")
 
-def configure_php():
-    sudo(
-        f"""bash -c 'cat > /etc/php/{PHP_VERSION}/fpm/pool.d/www.conf <<EOF
-[www]
-user = {WEB_USER}
-group = {WEB_USER}
-listen = /run/php/php{PHP_VERSION}-fpm.sock
-listen.owner = {WEB_USER}
-listen.group = {WEB_USER}
-listen.mode = 0660
-pm = dynamic
-pm.max_children = 30
-pm.start_servers = 6
-pm.min_spare_servers = 4
-pm.max_spare_servers = 10
-pm.max_requests = 1000
-request_terminate_timeout = 120s
-clear_env = no
-EOF'
-"""
-    )
-
-    sudo(
-        f"""bash -c 'cat > /etc/php/{PHP_VERSION}/fpm/conf.d/99-production.ini <<EOF
-display_errors=Off
-display_startup_errors=Off
-error_reporting=E_ALL & ~E_DEPRECATED & ~E_STRICT
-EOF'
-"""
-    )
-
-    sudo("pkill php-fpm || true")
-    sudo(f"php-fpm{PHP_VERSION} -D")
-
-
-def configure_nginx():
-    sudo(
-        f"""bash -c 'cat > /etc/nginx/sites-available/codexsun <<EOF
+    # Nginx
+    nginx_block = f"""
 server {{
-    listen {NGINX_PORT};
-    server_name {DOMAIN};
-    root {APP_DIR}/public;
+    listen {port};
+    server_name {domain};
+    root {target}/public;
     index index.php index.html;
 
     location / {{
-        try_files \\$uri \\$uri/ /index.php?\\$query_string;
+        try_files $uri $uri/ /index.php?$query_string;
     }}
 
     location ~ \\.php$ {{
@@ -124,55 +100,98 @@ server {{
         deny all;
     }}
 }}
-EOF'
 """
-    )
+    sudo(f"bash -c 'cat > {nginx_conf(name)} <<EOF\n{nginx_block}\nEOF'")
+    sudo(f"ln -sf {nginx_conf(name)} {NGINX_ENABLED / name}")
 
-    sudo("ln -sf /etc/nginx/sites-available/codexsun /etc/nginx/sites-enabled/codexsun")
-    sudo("rm -f /etc/nginx/sites-enabled/default")
     sudo("nginx -t")
+    sudo("nginx -s reload")
 
-    # CONTAINER-SAFE START
-    sudo("rm -f /run/nginx.pid")
-    sudo("pkill nginx || true")
-    sudo("nginx")
+    print(f"\n✅ App created: {name}")
+    print(f"🌐 http://{domain}:{port}")
 
+# ---------------- DELETE APP ----------------
+def delete_app(args):
+    ensure_root_for_nginx()
 
-def build_laravel():
-    env = Path(APP_DIR) / ".env"
-    if not env.exists():
-        run("cp .env.example .env", cwd=APP_DIR)
+    name = args.name
+    target = app_dir(name)
 
-    sudo(f"chown -R {APP_USER}:{WEB_USER} {APP_DIR}")
-    sudo(f"find {APP_DIR} -type d -exec chmod 775 {{}} \\;")
-    sudo(f"find {APP_DIR} -type f -exec chmod 664 {{}} \\;")
+    if not target.exists():
+        print("❌ App not found")
+        sys.exit(1)
 
-    run("composer install --no-dev --optimize-autoloader", cwd=APP_DIR)
-    run("php artisan key:generate --force", cwd=APP_DIR)
-    run("php artisan storage:link", cwd=APP_DIR)
+    print(f"\n🗑 Deleting app: {name}")
 
-    if (Path(APP_DIR) / "package.json").exists():
-        run("npm install", cwd=APP_DIR)
-        run("npm run build", cwd=APP_DIR)
+    sudo(f"rm -rf {target}")
+    sudo(f"rm -f {NGINX_AVAILABLE / name}")
+    sudo(f"rm -f {NGINX_ENABLED / name}")
 
-    run("php artisan optimize", cwd=APP_DIR)
+    sudo("nginx -t")
+    sudo("nginx -s reload")
 
-    sudo(f"chown -R {WEB_USER}:{WEB_USER} {APP_DIR}")
-    sudo(f"chmod -R 775 {APP_DIR}/storage {APP_DIR}/bootstrap/cache")
+    print("✅ App deleted")
 
+# ---------------- REDEPLOY APP ----------------
+def redeploy_app(args):
+    name = args.name
+    target = app_dir(name)
 
+    if not target.exists():
+        print("❌ App not found")
+        sys.exit(1)
+
+    print(f"\n🔄 Redeploying app: {name}")
+
+    run("git pull", cwd=target)
+    run("composer install --no-dev --optimize-autoloader", cwd=target)
+
+    if (target / "package.json").exists():
+        run("npm install", cwd=target)
+        run("npm run build", cwd=target)
+
+    run("php artisan migrate --force", cwd=target, check=False)
+    run("php artisan optimize", cwd=target)
+
+    sudo(f"chown -R {WEB_USER}:{WEB_USER} {target}")
+    sudo(f"chmod -R 775 {target}/storage {target}/bootstrap/cache")
+
+    print("✅ Redeploy complete")
+
+# ---------------- LIST APPS ----------------
+def list_apps(_):
+    print("\n📦 Installed apps:")
+    if not BASE_DIR.exists():
+        return
+    for d in BASE_DIR.iterdir():
+        if d.is_dir():
+            print(" -", d.name)
+
+# ---------------- CLI ----------------
 def main():
-    print("\n=== Laravel + Nginx + PHP 8.4 + NPM BUILD ===")
-    install_packages()
-    fix_filesystem()
-    clone_app()
-    configure_php()
-    configure_nginx()
-    build_laravel()
+    parser = argparse.ArgumentParser(description="Multi Laravel App Manager")
+    sub = parser.add_subparsers(dest="cmd", required=True)
 
-    print("\n✅ DONE")
-    print(f"🌐 http://localhost:{NGINX_PORT}")
+    c = sub.add_parser("create")
+    c.add_argument("--name", required=True)
+    c.add_argument("--repo", required=True)
+    c.add_argument("--domain", default="localhost")
+    c.add_argument("--port", required=True)
+    c.set_defaults(func=create_app)
 
+    d = sub.add_parser("delete")
+    d.add_argument("--name", required=True)
+    d.set_defaults(func=delete_app)
+
+    r = sub.add_parser("redeploy")
+    r.add_argument("--name", required=True)
+    r.set_defaults(func=redeploy_app)
+
+    l = sub.add_parser("list")
+    l.set_defaults(func=list_apps)
+
+    args = parser.parse_args()
+    args.func(args)
 
 if __name__ == "__main__":
     main()
