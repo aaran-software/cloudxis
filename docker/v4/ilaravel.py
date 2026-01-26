@@ -6,7 +6,7 @@ from pathlib import Path
 
 APP_BASE = "/home/devops/cloud"
 APP_DIR = f"{APP_BASE}/codexsun"
-GIT_REPO = "https://github.com/sundar-aaran/cxlaravel.git"
+GIT_REPO = "https://github.com/aaran-software/codexsun.git"
 
 APP_USER = "devops"
 WEB_USER = "www-data"
