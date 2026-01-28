@@ -4,7 +4,7 @@ import os
 
 # ================ CONFIG =================
 DOMAIN = "techmedia.in"
-NGINX_PORT = 7001
+NGINX_PORT = 7021
 PHP_VERSION = "8.4"
 # ========================================
 
