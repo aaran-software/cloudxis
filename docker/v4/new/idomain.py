@@ -8,7 +8,7 @@ APP_USER = "devops"
 WEB_USER = "www-data"
 PHP_VERSION = "8.4"
 
-NGINX_PORT = 7001
+NGINX_PORT = 7021
 DOMAIN = "techmedia.in"
 
 APP_BASE = "/home/devops/cloud"
@@ -17,14 +17,16 @@ GIT_REPO = "https://github.com/aaran-software/codexsun.git"
 # =========================================
 
 
-def run(cmd, cwd=None):
+def run(cmd, cwd=None, check=True):
     print(f"\n▶ {cmd}")
-    subprocess.run(cmd, shell=True, check=True, cwd=cwd)
+    subprocess.run(cmd, shell=True, check=check, cwd=cwd)
 
 
-def sudo(cmd):
-    run(f"sudo {cmd}")
+def sudo(cmd, check=True):
+    run(f"sudo {cmd}", check=check)
 
+
+# ---------------- BASIC SETUP ----------------
 
 def add_host():
     sudo(
@@ -33,9 +35,14 @@ def add_host():
 
 
 def fix_fs():
-    sudo("chmod o+x /home /home/devops /home/devops/cloud")
-    sudo(f"mkdir -p /var/log/php{PHP_VERSION}-fpm")
-    sudo(f"chown -R {WEB_USER}:{WEB_USER} /var/log/php{PHP_VERSION}-fpm")
+    sudo("chmod o+x /home /home/devops /home/devops/cloud", check=False)
+
+    sudo(f"mkdir -p /var/log/php{PHP_VERSION}-fpm /run/php")
+    sudo(f"chown -R {WEB_USER}:{WEB_USER} /var/log/php{PHP_VERSION}-fpm /run/php")
+
+    sudo("mkdir -p /var/log/nginx /run/nginx")
+    sudo("chown -R root:root /var/log/nginx /run/nginx")
+    sudo("chmod 755 /var/log/nginx /run/nginx")
 
 
 def clone_app():
@@ -44,24 +51,34 @@ def clone_app():
         run(f"git clone {GIT_REPO} {APP_DIR}")
 
 
+# ---------------- PHP CONFIG (FIXED) ----------------
+
 def php_config():
     sudo(
         f"""bash -c 'cat > /etc/php/{PHP_VERSION}/fpm/pool.d/{DOMAIN}.conf <<EOF
 [{DOMAIN}]
 user = {WEB_USER}
 group = {WEB_USER}
+
 listen = /run/php/php{PHP_VERSION}-{DOMAIN}.sock
 listen.owner = {WEB_USER}
 listen.group = {WEB_USER}
 listen.mode = 0660
+
 pm = dynamic
 pm.max_children = 20
+pm.start_servers = 4
+pm.min_spare_servers = 2
+pm.max_spare_servers = 6
+pm.max_requests = 500
+
 clear_env = no
 EOF'
 """
     )
-    sudo(f"systemctl restart php{PHP_VERSION}-fpm")
 
+
+# ---------------- NGINX CONFIG ----------------
 
 def nginx_config():
     sudo(
@@ -91,9 +108,22 @@ EOF'
     )
 
     sudo(f"ln -sf /etc/nginx/sites-available/{DOMAIN} /etc/nginx/sites-enabled/{DOMAIN}")
+    sudo("rm -f /etc/nginx/sites-enabled/default")
     sudo("nginx -t")
-    sudo("systemctl restart nginx")
 
+
+# ---------------- START SERVICES ----------------
+
+def start_services():
+    sudo("pkill php-fpm || true")
+    sudo("pkill nginx || true")
+    sudo("rm -f /run/nginx.pid")
+
+    sudo(f"php-fpm{PHP_VERSION} -D")
+    sudo("nginx")
+
+
+# ---------------- LARAVEL ----------------
 
 def laravel_build():
     env = Path(APP_DIR) / ".env"
@@ -101,6 +131,7 @@ def laravel_build():
         run("cp .env.example .env", cwd=APP_DIR)
 
     sudo(f"chown -R {APP_USER}:{WEB_USER} {APP_DIR}")
+
     run("composer install --no-dev --optimize-autoloader", cwd=APP_DIR)
     run("php artisan key:generate --force", cwd=APP_DIR)
     run("php artisan optimize", cwd=APP_DIR)
@@ -109,15 +140,20 @@ def laravel_build():
     sudo(f"chmod -R 775 {APP_DIR}/storage {APP_DIR}/bootstrap/cache")
 
 
+# ---------------- MAIN ----------------
+
 def main():
     print(f"\n=== SETUP {DOMAIN} ===")
+
     add_host()
     fix_fs()
     clone_app()
     php_config()
     nginx_config()
+    start_services()
     laravel_build()
-    print(f"\n✅ http://{DOMAIN}:{NGINX_PORT}")
+
+    print(f"\n✅ RUNNING: http://{DOMAIN}:{NGINX_PORT}")
 
 
 if __name__ == "__main__":
