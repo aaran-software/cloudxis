@@ -3,110 +3,136 @@ import subprocess
 import os
 from pathlib import Path
 
-# ================= CONFIG =================
+# =====================================================
+# GLOBAL CONFIG
+# =====================================================
 
 APP_USER = "devops"
 WEB_USER = "www-data"
 PHP_VERSION = "8.4"
 
-NGINX_PORT = 7021
-DOMAIN = "techmedia.in"
-
 APP_BASE = "/home/devops/cloud"
-APP_DIR = f"{APP_BASE}/codexsun"
 GIT_REPO = "https://github.com/aaran-software/codexsun.git"
 
-# ---------- APP + DB ENV (PINNED AT TOP) ----------
-
-APP_ENV_VARS = {
-    "APP_NAME": "CODEXSUN",
-    "APP_ENV": "local",
-    "APP_DEBUG": "true",
-    "APP_URL": "http://localhost",
+# ---------- DATABASE ROOT ACCESS ----------
+DB_ROOT = {
+    "HOST": "mariadb",
+    "PORT": "3306",
+    "USER": "root",
+    "PASS": "DbPass1@@",
 }
 
-DB_ENV_VARS = {
-    "DB_CONNECTION": "mariadb",
-    "DB_HOST": "mariadb",
-    "DB_PORT": "3306",
-    "DB_DATABASE": "techmedia_in_db",
-    "DB_USERNAME": "root",
-    "DB_PASSWORD": "DbPass1@@",
-}
+# ---------- MULTI APP DEFINITIONS ----------
+APPS = [
+    {
+        "domain": "techmedia.in",
+        "port": 7021,
+        "db": "techmedia_in_db",
+    },
+    {
+        "domain": "cxsun.com",
+        "port": 7022,
+        "db": "cxsun_db",
+    },
+    {
+        "domain": "sukraa.com",
+        "port": 7023,
+        "db": "sukraa_db",
+    },
+]
 
-# =========================================
-
+# =====================================================
+# HELPERS
+# =====================================================
 
 def run(cmd, cwd=None, check=True):
     print(f"\n▶ {cmd}")
     subprocess.run(cmd, shell=True, check=check, cwd=cwd)
 
-
 def sudo(cmd, check=True):
     run(f"sudo {cmd}", check=check)
 
+def mysql_exec(sql, check=True):
+    cmd = [
+        "mysql",
+        f"-u{DB_ROOT['USER']}",
+        f"-p{DB_ROOT['PASS']}",
+        "-h", DB_ROOT["HOST"],
+        "-P", DB_ROOT["PORT"],
+        "--protocol=tcp",
+    ]
+    print("\n▶ mysql (TCP)")
+    subprocess.run(cmd, input=sql, text=True, check=check)
 
-# ---------------- BASIC SETUP ----------------
-
-def add_host():
-    sudo(
-        f"""bash -c "grep -q '{DOMAIN}' /etc/hosts || echo '127.0.0.1 {DOMAIN}' >> /etc/hosts" """
+def database_exists(db):
+    result = subprocess.run(
+        [
+            "mysql",
+            f"-u{DB_ROOT['USER']}",
+            f"-p{DB_ROOT['PASS']}",
+            "-h", DB_ROOT["HOST"],
+            "-P", DB_ROOT["PORT"],
+            "--protocol=tcp",
+            "-Nse",
+            f"SHOW DATABASES LIKE '{db}';",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False,
     )
+    return bool(result.stdout.strip())
 
+# =====================================================
+# SYSTEM SETUP (ONCE)
+# =====================================================
 
-def fix_fs():
+def system_setup():
     sudo("chmod o+x /home /home/devops /home/devops/cloud", check=False)
-
     sudo(f"mkdir -p /var/log/php{PHP_VERSION}-fpm /run/php")
     sudo(f"chown -R {WEB_USER}:{WEB_USER} /var/log/php{PHP_VERSION}-fpm /run/php")
-
     sudo("mkdir -p /var/log/nginx /run/nginx")
     sudo("chown -R root:root /var/log/nginx /run/nginx")
     sudo("chmod 755 /var/log/nginx /run/nginx")
 
+# =====================================================
+# PER-APP STEPS
+# =====================================================
 
-def clone_app():
-    os.makedirs(APP_BASE, exist_ok=True)
-    if not os.path.isdir(APP_DIR):
-        run(f"git clone {GIT_REPO} {APP_DIR}")
+def add_host(domain):
+    sudo(f"""bash -c "grep -q '{domain}' /etc/hosts || echo '127.0.0.1 {domain}' >> /etc/hosts" """)
 
+def clone_app(app_dir):
+    if not os.path.isdir(f"{app_dir}/.git"):
+        run(f"git clone {GIT_REPO} {app_dir}")
 
-# ---------------- PHP CONFIG ----------------
-
-def php_config():
+def php_fpm_config(domain):
     sudo(
-        f"""bash -c 'cat > /etc/php/{PHP_VERSION}/fpm/pool.d/{DOMAIN}.conf <<EOF
-[{DOMAIN}]
+        f"""bash -c 'cat > /etc/php/{PHP_VERSION}/fpm/pool.d/{domain}.conf <<EOF
+[{domain}]
 user = {WEB_USER}
 group = {WEB_USER}
-
-listen = /run/php/php{PHP_VERSION}-{DOMAIN}.sock
+listen = /run/php/php{PHP_VERSION}-{domain}.sock
 listen.owner = {WEB_USER}
 listen.group = {WEB_USER}
 listen.mode = 0660
-
 pm = dynamic
-pm.max_children = 30
-pm.start_servers = 6
-pm.min_spare_servers = 4
-pm.max_spare_servers = 10
-pm.max_requests = 500
-
+pm.max_children = 20
+pm.start_servers = 4
+pm.min_spare_servers = 2
+pm.max_spare_servers = 6
 clear_env = no
 EOF'
 """
     )
 
-
-# ---------------- NGINX CONFIG ----------------
-
-def nginx_config():
+def nginx_config(domain, port, app_dir):
     sudo(
-        f"""bash -c 'cat > /etc/nginx/sites-available/{DOMAIN} <<EOF
+        f"""bash -c 'cat > /etc/nginx/sites-available/{domain} <<EOF
 server {{
-    listen {NGINX_PORT};
-    server_name {DOMAIN};
-    root {APP_DIR}/public;
+    listen {port};
+    server_name {domain};
+    root {app_dir}/public;
 
     index index.php index.html;
 
@@ -116,7 +142,7 @@ server {{
 
     location ~ \\.php$ {{
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php{PHP_VERSION}-{DOMAIN}.sock;
+        fastcgi_pass unix:/run/php/php{PHP_VERSION}-{domain}.sock;
     }}
 
     location ~ /\\. {{
@@ -126,141 +152,80 @@ server {{
 EOF'
 """
     )
+    sudo(f"ln -sf /etc/nginx/sites-available/{domain} /etc/nginx/sites-enabled/{domain}")
 
-    sudo(f"ln -sf /etc/nginx/sites-available/{DOMAIN} /etc/nginx/sites-enabled/{DOMAIN}")
-    sudo("rm -f /etc/nginx/sites-enabled/default")
+def rewrite_env(app_dir, domain, db):
+    env_path = Path(app_dir) / ".env"
+    if not env_path.exists():
+        run("cp .env.example .env", cwd=app_dir)
+
+    env = {
+        "APP_NAME": domain.upper().replace(".", "_"),
+        "APP_ENV": "local",
+        "APP_DEBUG": "true",
+        "APP_URL": f"http://{domain}",
+        "DB_CONNECTION": "mariadb",
+        "DB_HOST": DB_ROOT["HOST"],
+        "DB_PORT": DB_ROOT["PORT"],
+        "DB_DATABASE": db,
+        "DB_USERNAME": DB_ROOT["USER"],
+        "DB_PASSWORD": DB_ROOT["PASS"],
+    }
+
+    with open(env_path, "w") as f:
+        for k, v in env.items():
+            f.write(f"{k}={v}\n")
+
+def laravel_setup(app_dir, db):
+    sudo(f"chown -R {APP_USER}:{WEB_USER} {app_dir}")
+    run("composer install --no-dev --optimize-autoloader", cwd=app_dir)
+    run("php artisan key:generate --force", cwd=app_dir)
+    run("php artisan optimize", cwd=app_dir)
+
+    if not database_exists(db):
+        print(f"⚠️  Database `{db}` does not exist")
+        if input("👉 Create database now? (y/N): ").lower() == "y":
+            mysql_exec(f"CREATE DATABASE {db} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+        else:
+            return
+
+    if input("👉 Run migrations? (y/N): ").lower() == "y":
+        run("php artisan migrate --force", cwd=app_dir)
+
+    sudo(f"chown -R {WEB_USER}:{WEB_USER} {app_dir}")
+    sudo(f"chmod -R 775 {app_dir}/storage {app_dir}/bootstrap/cache")
+
+# =====================================================
+# MAIN
+# =====================================================
+
+def main():
+    system_setup()
+
+    for app in APPS:
+        domain = app["domain"]
+        port = app["port"]
+        db = app["db"]
+
+        app_dir = f"{APP_BASE}/{domain}/app"
+        os.makedirs(app_dir, exist_ok=True)
+
+        print(f"\n=== SETUP {domain} ===")
+
+        add_host(domain)
+        clone_app(app_dir)
+        php_fpm_config(domain)
+        nginx_config(domain, port, app_dir)
+        rewrite_env(app_dir, domain, db)
+        laravel_setup(app_dir, db)
+
     sudo("nginx -t")
-
-
-# ---------------- SERVICES ----------------
-
-def start_services():
     sudo("pkill php-fpm || true")
     sudo("pkill nginx || true")
-    sudo("rm -f /run/nginx.pid")
-
     sudo(f"php-fpm{PHP_VERSION} -D")
     sudo("nginx")
 
-
-# ---------------- ENV ----------------
-
-def rewrite_env():
-    env_path = Path(APP_DIR) / ".env"
-
-    if not env_path.exists():
-        run("cp .env.example .env", cwd=APP_DIR)
-
-    existing = {}
-    with open(env_path) as f:
-        for line in f:
-            if "=" in line and not line.startswith("#"):
-                k, v = line.strip().split("=", 1)
-                existing[k] = v
-
-    merged = {}
-    merged.update(APP_ENV_VARS)
-    merged.update(DB_ENV_VARS)
-    merged.update(existing)
-
-    with open(env_path, "w") as f:
-        for k, v in merged.items():
-            f.write(f"{k}={v}\n")
-
-    print("✅ .env rewritten (APP + DB pinned at top)")
-
-
-# ---------------- DATABASE (TCP FORCED) ----------------
-
-def mysql_cmd(sql):
-    return (
-        f"mysql "
-        f"-u{DB_ENV_VARS['DB_USERNAME']} "
-        f"-p{DB_ENV_VARS['DB_PASSWORD']} "
-        f"-h {DB_ENV_VARS['DB_HOST']} "
-        f"-P {DB_ENV_VARS['DB_PORT']} "
-        f"--protocol=tcp "
-        f"-e \"{sql}\""
-    )
-
-
-def database_exists():
-    result = subprocess.run(
-        mysql_cmd(f"SHOW DATABASES LIKE '{DB_ENV_VARS['DB_DATABASE']}';"),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        text=True
-    )
-    return DB_ENV_VARS["DB_DATABASE"] in result.stdout
-
-
-def create_database():
-    run(
-        mysql_cmd(
-            f"CREATE DATABASE `{DB_ENV_VARS['DB_DATABASE']}` "
-            f"CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-        )
-    )
-    print(f"✅ Database `{DB_ENV_VARS['DB_DATABASE']}` created")
-
-
-def ask_and_migrate():
-    choice = input("👉 Run `php artisan migrate` now? (y/N): ").lower()
-    if choice == "y":
-        run("php artisan migrate --seed --force", cwd=APP_DIR)
-        print("✅ Migrations completed")
-    else:
-        print("⏭️  Migration skipped")
-
-
-# ---------------- LARAVEL ----------------
-
-def laravel_build():
-    rewrite_env()
-
-    sudo(f"chown -R {APP_USER}:{WEB_USER} {APP_DIR}")
-
-    run("composer install --no-dev --optimize-autoloader", cwd=APP_DIR)
-    run("php artisan key:generate --force", cwd=APP_DIR)
-    run("php artisan storage:link", cwd=APP_DIR)
-
-    if not database_exists():
-        print("⚠️  Database does not exist")
-        if input("👉 Create database now? (y/N): ").lower() == "y":
-            create_database()
-        else:
-            print("⏭️  Database creation skipped")
-            return
-
-    ask_and_migrate()
-
-    if (Path(APP_DIR) / "package.json").exists():
-        run("npm install", cwd=APP_DIR)
-        run("npm run build", cwd=APP_DIR)
-
-    run("php artisan optimize", cwd=APP_DIR)
-
-    sudo(f"chown -R {WEB_USER}:{WEB_USER} {APP_DIR}")
-    sudo(f"chmod -R 775 {APP_DIR}/storage {APP_DIR}/bootstrap/cache")
-
-
-# ---------------- MAIN ----------------
-
-def main():
-    print(f"\n=== SETUP {DOMAIN} ===")
-
-    add_host()
-    fix_fs()
-    clone_app()
-    php_config()
-    nginx_config()
-    start_services()
-    laravel_build()
-
-    # print(f"\n✅ RUNNING: http://{DOMAIN}:{NGINX_PORT}")
-    print(f"\n✅ RUNNING: http://localhost:{NGINX_PORT}")
-
+    print("\n✅ ALL APPLICATIONS INSTALLED")
 
 if __name__ == "__main__":
     main()
