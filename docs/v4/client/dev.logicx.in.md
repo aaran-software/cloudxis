@@ -44,3 +44,5 @@ cp .env.example .env
 
 
 
+bench --site dev.logicx.in install-app gameplan
+bench --site dev.logicx.in install-app slides
