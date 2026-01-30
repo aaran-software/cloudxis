@@ -25,7 +25,6 @@ APPS = [
     {"domain": "thetirupur.com", "port": 7023, "db": "thetirupur_db"},
 ]
 
-
 # =====================================================
 # HELPERS
 # =====================================================
@@ -34,10 +33,8 @@ def run(cmd, cwd=None):
     print(f"\n▶ {cmd}")
     subprocess.check_call(cmd, shell=True, cwd=cwd)
 
-
 def sudo(cmd):
     run(f"sudo {cmd}")
-
 
 def mysql_exec(sql):
     run(
@@ -45,7 +42,6 @@ def mysql_exec(sql):
         f"-h {DB_ROOT['HOST']} -P {DB_ROOT['PORT']} --protocol=tcp "
         f"-e \"{sql}\""
     )
-
 
 def database_exists(db):
     result = subprocess.check_output(
@@ -57,19 +53,23 @@ def database_exists(db):
     )
     return bool(result.strip())
 
-
 # =====================================================
 # SYSTEM SETUP
 # =====================================================
 
 def system_setup():
     sudo("chmod o+x /home /home/devops")
+
+    # base app directory
     sudo(f"mkdir -p {APP_BASE}")
     sudo(f"chown -R {APP_USER}:{APP_USER} {APP_BASE}")
 
+    # php-fpm runtime dirs
     sudo(f"mkdir -p /var/log/php{PHP_VERSION}-fpm /run/php")
     sudo(f"chown -R {APP_USER}:{APP_USER} /var/log/php{PHP_VERSION}-fpm /run/php")
 
+    # 🔑 CRITICAL FIX: allow nginx to access php-fpm sockets
+    sudo("usermod -aG devops www-data")
 
 # =====================================================
 # FILESYSTEM (DOCKER SAFE)
@@ -78,7 +78,6 @@ def system_setup():
 def ensure_app_dir(app_dir):
     sudo(f"mkdir -p {app_dir}")
     sudo(f"chown -R {APP_USER}:{APP_USER} {app_dir}")
-
 
 # =====================================================
 # PER APP
@@ -90,11 +89,9 @@ def add_host(domain):
 echo '127.0.0.1 {domain}' >> /etc/hosts" """
     )
 
-
 def clone_app(app_dir):
     if not Path(app_dir, ".git").exists():
         run(f"git clone {GIT_REPO} {app_dir}")
-
 
 def php_fpm_config(domain):
     sudo(
@@ -115,7 +112,6 @@ clear_env = no
 EOF'
 """
     )
-
 
 def nginx_config(domain, port, app_dir):
     sudo(
@@ -144,7 +140,6 @@ EOF'
 """
     )
     sudo(f"ln -sf /etc/nginx/sites-available/{domain} /etc/nginx/sites-enabled/{domain}")
-
 
 def rewrite_env(app_dir, domain, db):
     env_path = Path(app_dir) / ".env"
@@ -183,7 +178,6 @@ def rewrite_env(app_dir, domain, db):
 
     env_path.write_text("\n".join(new) + "\n")
 
-
 def laravel_setup(app_dir, db):
     run("composer install --no-dev --optimize-autoloader", cwd=app_dir)
     run("php artisan key:generate --force", cwd=app_dir)
@@ -201,7 +195,6 @@ def laravel_setup(app_dir, db):
     if input("👉 Run migrations? (y/N): ").lower() == "y":
         run("php artisan migrate --force", cwd=app_dir)
         run("php artisan optimize", cwd=app_dir)
-
 
 # =====================================================
 # MAIN
@@ -234,7 +227,6 @@ def main():
     sudo("nginx")
 
     print("\n✅ ALL APPLICATIONS INSTALLED (SINGLE USER, DOCKER SAFE)")
-
 
 if __name__ == "__main__":
     main()
