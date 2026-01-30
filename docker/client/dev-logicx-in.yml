@@ -1,0 +1,19 @@
+services:
+  dev_logicx_in:
+    image: codexion:v5
+    container_name: dev_logicx_in
+    ports:
+      - "8040:8000"
+      - "8041:8041"
+      - "8042:8042"
+
+    volumes:
+      - ../../../cloud/dev_logicx_in:/home/devops/cloud
+    networks:
+      - codexion-network
+    restart: unless-stopped
+    tty: true
+
+networks:
+  codexion-network:
+    external: true

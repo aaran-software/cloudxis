@@ -25,19 +25,19 @@ DB_ROOT = {
 # ---------- MULTI APP DEFINITIONS ----------
 APPS = [
     {
-        "domain": "techmedia.in",
+        "domain": "codexsun.com",
         "port": 7021,
-        "db": "techmedia_in_db",
+        "db": "codexsun_db",
     },
     {
-        "domain": "cxsun.com",
+        "domain": "aaranerp.com",
         "port": 7022,
-        "db": "cxsun_db",
+        "db": "aaranerp_db",
     },
     {
-        "domain": "sukraa.com",
+        "domain": "thetirupur.com",
         "port": 7023,
-        "db": "sukraa_db",
+        "db": "thetirupur_db",
     },
 ]
 
@@ -159,7 +159,7 @@ def rewrite_env(app_dir, domain, db):
     if not env_path.exists():
         run("cp .env.example .env", cwd=app_dir)
 
-    env = {
+    updates = {
         "APP_NAME": domain.upper().replace(".", "_"),
         "APP_ENV": "local",
         "APP_DEBUG": "true",
@@ -172,9 +172,26 @@ def rewrite_env(app_dir, domain, db):
         "DB_PASSWORD": DB_ROOT["PASS"],
     }
 
-    with open(env_path, "w") as f:
-        for k, v in env.items():
-            f.write(f"{k}={v}\n")
+    lines = env_path.read_text().splitlines()
+    new_lines = []
+    seen_keys = set()
+
+    for line in lines:
+        if "=" in line and not line.strip().startswith("#"):
+            key, _ = line.split("=", 1)
+            if key in updates:
+                new_lines.append(f"{key}={updates[key]}")
+                seen_keys.add(key)
+                continue
+        new_lines.append(line)
+
+    # append missing keys
+    for k, v in updates.items():
+        if k not in seen_keys:
+            new_lines.append(f"{k}={v}")
+
+    env_path.write_text("\n".join(new_lines) + "\n")
+
 
 def laravel_setup(app_dir, db):
     sudo(f"chown -R {APP_USER}:{WEB_USER} {app_dir}")
@@ -197,6 +214,10 @@ def laravel_setup(app_dir, db):
 
     if input("👉 Run migrations? (y/N): ").lower() == "y":
         run("php artisan migrate --force", cwd=app_dir)
+
+        if (Path(app_dir) / "package.json").exists():
+            run("npm install", cwd=app_dir)
+            run("npm run build", cwd=app_dir)
 
     sudo(f"chown -R {WEB_USER}:{WEB_USER} {app_dir}")
     sudo(f"chown -R {WEB_USER}:{WEB_USER} {app_dir}/storage {app_dir}/bootstrap/cache")
