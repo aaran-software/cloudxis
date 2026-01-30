@@ -9,16 +9,23 @@ from pathlib import Path
 # CONFIG
 # ==================================================
 APP_DIR = Path.cwd()
+
 APP_USER = "devops"
+WEB_USER = "www-data"
 
 LOCK_FILE = Path("/tmp/ideploy.lock")
 
 # ==================================================
 # HELPERS
 # ==================================================
-def run(cmd):
-    print(f"\n▶ {cmd}")
-    subprocess.check_call(cmd, shell=True, cwd=APP_DIR)
+def run(cmd, user=None):
+    prefix = f"sudo -u {user} " if user else ""
+    print(f"\n▶ {prefix}{cmd}")
+    subprocess.check_call(
+        f"{prefix}{cmd}",
+        shell=True,
+        cwd=APP_DIR,
+    )
 
 def info(msg):
     print(f"\nℹ️  {msg}")
@@ -34,11 +41,9 @@ def ensure_repo():
     if not (APP_DIR / ".git").exists():
         fail(f"Not a git repository: {APP_DIR}")
 
-def ensure_user():
+def ensure_not_root():
     if os.geteuid() == 0:
         fail("Do not run ideploy as root")
-    if os.getlogin() != APP_USER:
-        fail(f"Run ideploy as `{APP_USER}`")
 
 def lock():
     if LOCK_FILE.exists():
@@ -49,11 +54,22 @@ def unlock():
     LOCK_FILE.unlink(missing_ok=True)
 
 # ==================================================
+# PERMISSIONS
+# ==================================================
+def prepare_for_git():
+    info("Preparing filesystem for git")
+    run("chown -R devops:devops .", user="root")
+
+def restore_runtime_permissions():
+    info("Restoring runtime permissions")
+    run("chown -R www-data:www-data storage bootstrap/cache", user="root")
+    run("chmod -R 775 storage bootstrap/cache", user="root")
+
+# ==================================================
 # GIT
 # ==================================================
 def git_update():
     info("Updating source code")
-
     branch = subprocess.check_output(
         "git symbolic-ref --short HEAD",
         shell=True,
@@ -61,43 +77,33 @@ def git_update():
         text=True,
     ).strip()
 
-    run("git fetch origin")
-    run(f"git reset --hard origin/{branch}")
-    run("git clean -fd")
+    run("git fetch origin", user=APP_USER)
+    run(f"git reset --hard origin/{branch}", user=APP_USER)
+    run("git clean -fd", user=APP_USER)
 
 # ==================================================
 # NPM
 # ==================================================
-def npm_build():
+def npm_update_build():
     if not (APP_DIR / "package.json").exists():
         info("No package.json, skipping npm")
         return
 
-    info("Building frontend")
-
-    try:
-        run("npm run build")
-    except subprocess.CalledProcessError:
-        info("Build failed — running npm install")
-        run("npm install")
-        run("npm run build")
+    info("Updating & building frontend")
+    run("npm install", user=APP_USER)
+    run("npm run build", user=APP_USER)
 
 # ==================================================
 # LARAVEL
 # ==================================================
 def laravel_optimize():
-    if not (APP_DIR / "artisan").exists():
-        info("Not a Laravel app, skipping optimize")
-        return
-
     info("Optimizing Laravel")
-
-    run("php artisan down || true")
-    run("php artisan optimize:clear")
-    run("php artisan config:cache")
-    run("php artisan route:cache")
-    run("php artisan view:cache")
-    run("php artisan up")
+    run("php artisan down || true", user=WEB_USER)
+    run("php artisan optimize:clear", user=WEB_USER)
+    run("php artisan config:cache", user=WEB_USER)
+    run("php artisan route:cache", user=WEB_USER)
+    run("php artisan view:cache", user=WEB_USER)
+    run("php artisan up", user=WEB_USER)
 
 # ==================================================
 # MAIN
@@ -109,12 +115,14 @@ def main():
     print("==============================")
 
     ensure_repo()
-    ensure_user()
+    ensure_not_root()
     lock()
 
     try:
+        prepare_for_git()
         git_update()
-        npm_build()
+        npm_update_build()
+        restore_runtime_permissions()
         laravel_optimize()
     finally:
         unlock()
