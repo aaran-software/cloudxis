@@ -43,4 +43,16 @@ cp .env.example .env
 
 
 
+idomain.py
+ ├─ clone repo
+ ├─ composer install
+ ├─ initial permissions
+ ├─ npm install + build
+ └─ NEVER touch git again
 
+ideploy.py
+ ├─ chown everything → devops
+ ├─ git reset / pull
+ ├─ npm update + build
+ ├─ chown runtime dirs → www-data
+ └─ php artisan optimize

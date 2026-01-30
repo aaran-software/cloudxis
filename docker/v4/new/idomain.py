@@ -189,10 +189,17 @@ def laravel_setup(app_dir, db):
         else:
             return
 
+    if not (Path(app_dir) / "package.json").exists():
+        print("ℹ️  No package.json, skipping npm")
+        return
+    run("npm install", cwd=app_dir)
+    run("npm run build", cwd=app_dir)
+
     if input("👉 Run migrations? (y/N): ").lower() == "y":
         run("php artisan migrate --force", cwd=app_dir)
 
     sudo(f"chown -R {WEB_USER}:{WEB_USER} {app_dir}")
+    sudo(f"chown -R {WEB_USER}:{WEB_USER} {app_dir}/storage {app_dir}/bootstrap/cache")
     sudo(f"chmod -R 775 {app_dir}/storage {app_dir}/bootstrap/cache")
 
 # =====================================================
