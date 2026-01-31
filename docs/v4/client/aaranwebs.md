@@ -42,17 +42,44 @@ cp .env.example .env
 ```
 
 
+```
+ cd etc/nginx/sites-available/
+```
 
-idomain.py
- ├─ clone repo
- ├─ composer install
- ├─ initial permissions
- ├─ npm install + build
- └─ NEVER touch git again
+```
+sudo nano dev.logicx.in
+```
 
-ideploy.py
- ├─ chown everything → devops
- ├─ git reset / pull
- ├─ npm update + build
- ├─ chown runtime dirs → www-data
- └─ php artisan optimize
+```
+server {
+    listen 80;
+    server_name dev.logicx.in;
+
+    location / {
+        proxy_pass http://127.0.0.1:8040;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+
+sudo ln -s /etc/nginx/sites-available/dev.logicx.in /etc/nginx/sites-enabled/
+
+
+```
+sudo certbot --nginx
+```
+
+```
+sudo nginx -t
+```
+
+```
+sudo systemctl reload nginx
+```
+
+bench migrate
+bench build

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import subprocess
+import os
 from pathlib import Path
 
 # =====================================================
@@ -7,11 +8,13 @@ from pathlib import Path
 # =====================================================
 
 APP_USER = "devops"
+WEB_USER = "www-data"
 PHP_VERSION = "8.4"
 
 APP_BASE = "/home/devops/cloud"
 GIT_REPO = "https://github.com/aaran-software/codexsun.git"
 
+# ---------- DATABASE ROOT ACCESS ----------
 DB_ROOT = {
     "HOST": "mariadb",
     "PORT": "3306",
@@ -19,89 +22,99 @@ DB_ROOT = {
     "PASS": "DbPass1@@",
 }
 
+# ---------- MULTI APP DEFINITIONS ----------
 APPS = [
-    {"domain": "tmnext.in", "port": 7021, "db": "tmnext_db"},
-    {"domain": "logicx.in", "port": 7022, "db": "logicx_db"},
-    {"domain": "techmedia.in", "port": 7023, "db": "techmedia_db"},
+    {
+        "domain": "codexsun.com",
+        "port": 7021,
+        "db": "codexsun_db",
+    },
+    {
+        "domain": "aaranerp.com",
+        "port": 7022,
+        "db": "aaranerp_db",
+    },
+    {
+        "domain": "thetirupur.com",
+        "port": 7023,
+        "db": "thetirupur_db",
+    },
 ]
 
 # =====================================================
 # HELPERS
 # =====================================================
 
-def run(cmd, cwd=None):
+def run(cmd, cwd=None, check=True):
     print(f"\n▶ {cmd}")
-    subprocess.check_call(cmd, shell=True, cwd=cwd)
+    subprocess.run(cmd, shell=True, check=check, cwd=cwd)
 
-def sudo(cmd):
-    run(f"sudo {cmd}")
+def sudo(cmd, check=True):
+    run(f"sudo {cmd}", check=check)
 
-def mysql_exec(sql):
-    run(
-        f"mysql -u{DB_ROOT['USER']} -p{DB_ROOT['PASS']} "
-        f"-h {DB_ROOT['HOST']} -P {DB_ROOT['PORT']} --protocol=tcp "
-        f"-e \"{sql}\""
-    )
+def mysql_exec(sql, check=True):
+    cmd = [
+        "mysql",
+        f"-u{DB_ROOT['USER']}",
+        f"-p{DB_ROOT['PASS']}",
+        "-h", DB_ROOT["HOST"],
+        "-P", DB_ROOT["PORT"],
+        "--protocol=tcp",
+    ]
+    print("\n▶ mysql (TCP)")
+    subprocess.run(cmd, input=sql, text=True, check=check)
 
 def database_exists(db):
-    result = subprocess.check_output(
-        f"mysql -u{DB_ROOT['USER']} -p{DB_ROOT['PASS']} "
-        f"-h {DB_ROOT['HOST']} -P {DB_ROOT['PORT']} --protocol=tcp "
-        f"-Nse \"SHOW DATABASES LIKE '{db}';\"",
-        shell=True,
+    result = subprocess.run(
+        [
+            "mysql",
+            f"-u{DB_ROOT['USER']}",
+            f"-p{DB_ROOT['PASS']}",
+            "-h", DB_ROOT["HOST"],
+            "-P", DB_ROOT["PORT"],
+            "--protocol=tcp",
+            "-Nse",
+            f"SHOW DATABASES LIKE '{db}';",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
         text=True,
+        check=False,
     )
-    return bool(result.strip())
+    return bool(result.stdout.strip())
 
 # =====================================================
-# SYSTEM SETUP
+# SYSTEM SETUP (ONCE)
 # =====================================================
 
 def system_setup():
-    sudo("chmod o+x /home /home/devops")
-
-    # base app directory
-    sudo(f"mkdir -p {APP_BASE}")
-    sudo(f"chown -R {APP_USER}:{APP_USER} {APP_BASE}")
-
-    # php-fpm runtime dirs
+    sudo("chmod o+x /home /home/devops /home/devops/cloud", check=False)
     sudo(f"mkdir -p /var/log/php{PHP_VERSION}-fpm /run/php")
-    sudo(f"chown -R {APP_USER}:{APP_USER} /var/log/php{PHP_VERSION}-fpm /run/php")
-
-    # 🔑 CRITICAL FIX: allow nginx to access php-fpm sockets
-    sudo("usermod -aG devops www-data")
-
-# =====================================================
-# FILESYSTEM (DOCKER SAFE)
-# =====================================================
-
-def ensure_app_dir(app_dir):
-    sudo(f"mkdir -p {app_dir}")
-    sudo(f"chown -R {APP_USER}:{APP_USER} {app_dir}")
+    sudo(f"chown -R {WEB_USER}:{WEB_USER} /var/log/php{PHP_VERSION}-fpm /run/php")
+    sudo("mkdir -p /var/log/nginx /run/nginx")
+    sudo("chown -R root:root /var/log/nginx /run/nginx")
+    sudo("chmod 755 /var/log/nginx /run/nginx")
 
 # =====================================================
-# PER APP
+# PER-APP STEPS
 # =====================================================
 
 def add_host(domain):
-    sudo(
-        f"""bash -c "grep -q '{domain}' /etc/hosts || \
-echo '127.0.0.1 {domain}' >> /etc/hosts" """
-    )
+    sudo(f"""bash -c "grep -q '{domain}' /etc/hosts || echo '127.0.0.1 {domain}' >> /etc/hosts" """)
 
 def clone_app(app_dir):
-    if not Path(app_dir, ".git").exists():
+    if not os.path.isdir(f"{app_dir}/.git"):
         run(f"git clone {GIT_REPO} {app_dir}")
 
 def php_fpm_config(domain):
     sudo(
         f"""bash -c 'cat > /etc/php/{PHP_VERSION}/fpm/pool.d/{domain}.conf <<EOF
 [{domain}]
-user = {APP_USER}
-group = {APP_USER}
+user = {WEB_USER}
+group = {WEB_USER}
 listen = /run/php/php{PHP_VERSION}-{domain}.sock
-listen.owner = {APP_USER}
-listen.group = {APP_USER}
+listen.owner = {WEB_USER}
+listen.group = {WEB_USER}
 listen.mode = 0660
 pm = dynamic
 pm.max_children = 20
@@ -160,41 +173,55 @@ def rewrite_env(app_dir, domain, db):
     }
 
     lines = env_path.read_text().splitlines()
-    new = []
-    seen = set()
+    new_lines = []
+    seen_keys = set()
 
     for line in lines:
-        if "=" in line and not line.startswith("#"):
-            k = line.split("=", 1)[0]
-            if k in updates:
-                new.append(f"{k}={updates[k]}")
-                seen.add(k)
+        if "=" in line and not line.strip().startswith("#"):
+            key, _ = line.split("=", 1)
+            if key in updates:
+                new_lines.append(f"{key}={updates[key]}")
+                seen_keys.add(key)
                 continue
-        new.append(line)
+        new_lines.append(line)
 
+    # append missing keys
     for k, v in updates.items():
-        if k not in seen:
-            new.append(f"{k}={v}")
+        if k not in seen_keys:
+            new_lines.append(f"{k}={v}")
 
-    env_path.write_text("\n".join(new) + "\n")
+    env_path.write_text("\n".join(new_lines) + "\n")
+
 
 def laravel_setup(app_dir, db):
+    sudo(f"chown -R {APP_USER}:{WEB_USER} {app_dir}")
     run("composer install --no-dev --optimize-autoloader", cwd=app_dir)
     run("php artisan key:generate --force", cwd=app_dir)
+    run("php artisan optimize", cwd=app_dir)
 
     if not database_exists(db):
-        if input(f"👉 Create database `{db}`? (y/N): ").lower() == "y":
-            mysql_exec(
-                f"CREATE DATABASE {db} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-            )
+        print(f"⚠️  Database `{db}` does not exist")
+        if input("👉 Create database now? (y/N): ").lower() == "y":
+            mysql_exec(f"CREATE DATABASE {db} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+        else:
+            return
 
-    if Path(app_dir, "package.json").exists():
-        run("npm install", cwd=app_dir)
-        run("npm run build", cwd=app_dir)
+    if not (Path(app_dir) / "package.json").exists():
+        print("ℹ️  No package.json, skipping npm")
+        return
+    run("npm install", cwd=app_dir)
+    run("npm run build", cwd=app_dir)
 
     if input("👉 Run migrations? (y/N): ").lower() == "y":
         run("php artisan migrate --force", cwd=app_dir)
-        run("php artisan optimize", cwd=app_dir)
+
+        if (Path(app_dir) / "package.json").exists():
+            run("npm install", cwd=app_dir)
+            run("npm run build", cwd=app_dir)
+
+    sudo(f"chown -R {WEB_USER}:{WEB_USER} {app_dir}")
+    sudo(f"chown -R {WEB_USER}:{WEB_USER} {app_dir}/storage {app_dir}/bootstrap/cache")
+    sudo(f"chmod -R 775 {app_dir}/storage {app_dir}/bootstrap/cache")
 
 # =====================================================
 # MAIN
@@ -209,10 +236,10 @@ def main():
         db = app["db"]
 
         app_dir = f"{APP_BASE}/{domain}/app"
+        os.makedirs(app_dir, exist_ok=True)
 
         print(f"\n=== SETUP {domain} ===")
 
-        ensure_app_dir(app_dir)
         add_host(domain)
         clone_app(app_dir)
         php_fpm_config(domain)
@@ -226,7 +253,7 @@ def main():
     sudo(f"php-fpm{PHP_VERSION} -D")
     sudo("nginx")
 
-    print("\n✅ ALL APPLICATIONS INSTALLED (SINGLE USER, DOCKER SAFE)")
+    print("\n✅ ALL APPLICATIONS INSTALLED")
 
 if __name__ == "__main__":
     main()

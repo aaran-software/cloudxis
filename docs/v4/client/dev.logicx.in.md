@@ -42,7 +42,61 @@ cp .env.example .env
 ```
 
 
+bench get-app gameplan
+bench get-app slides
+bench get-app telephony
 
 
 bench --site dev.logicx.in install-app gameplan
 bench --site dev.logicx.in install-app slides
+
+
+bench get-app lms
+bench get-app helpdesk
+
+bench --site dev.logicx.in install-app lms
+bench --site dev.logicx.in install-app telephony
+bench --site dev.logicx.in install-app helpdesk
+
+
+```
+ cd etc/nginx/sites-available/
+```
+
+```
+sudo nano dev.logicx.in
+```
+
+```
+server {
+    listen 80;
+    server_name dev.logicx.in;
+
+    location / {
+        proxy_pass http://127.0.0.1:8040;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+
+sudo ln -s /etc/nginx/sites-available/dev.logicx.in /etc/nginx/sites-enabled/
+
+
+```
+sudo certbot --nginx
+```
+
+```
+sudo nginx -t
+```
+
+```
+sudo systemctl reload nginx
+```
+
+bench migrate
+bench build
