@@ -1,0 +1,166 @@
+FROM php:8.4-cli-alpine
+
+# --------------------------------------------------
+# Install system packages
+# --------------------------------------------------
+RUN apk add --no-cache \
+    git \
+    curl \
+    unzip \
+    nano \
+    nodejs \
+    npm \
+    bash \
+    icu-dev \
+    oniguruma-dev \
+    libzip-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libxml2-dev \
+    sqlite-dev \
+    linux-headers
+
+# --------------------------------------------------
+# Install build dependencies
+# --------------------------------------------------
+RUN apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS \
+    autoconf \
+    make \
+    gcc \
+    g++ \
+    libc-dev
+
+# --------------------------------------------------
+# Install PHP Extensions
+# --------------------------------------------------
+RUN docker-php-ext-configure gd \
+        --with-freetype \
+        --with-jpeg \
+    && docker-php-ext-install \
+        pdo \
+        pdo_mysql \
+        mbstring \
+        zip \
+        exif \
+        pcntl \
+        bcmath \
+        intl \
+        gd \
+        opcache \
+        sockets
+
+# --------------------------------------------------
+# Install Redis Extension
+# --------------------------------------------------
+RUN pecl install redis \
+    && docker-php-ext-enable redis
+
+# Remove build deps
+RUN apk del .build-deps
+
+# --------------------------------------------------
+# Install Composer
+# --------------------------------------------------
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# --------------------------------------------------
+# Create Laravel structure
+# --------------------------------------------------
+RUN mkdir -p /var/www/html/codexsun/public
+
+# Create test file
+RUN echo "<?php echo 'Codexsun Test OK';" > /var/www/html/codexsun/public/index.php
+
+WORKDIR /var/www/html/codexsun
+
+EXPOSE 7021
+
+# --------------------------------------------------
+# Start PHP Built-in Server
+# --------------------------------------------------
+CMD ["php", "-S", "0.0.0.0:7021", "-t", "public"]
+FROM php:8.4-cli-alpine
+
+# --------------------------------------------------
+# Install system packages
+# --------------------------------------------------
+RUN apk add --no-cache \
+    git \
+    curl \
+    unzip \
+    nano \
+    nodejs \
+    npm \
+    bash \
+    icu-dev \
+    oniguruma-dev \
+    libzip-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libxml2-dev \
+    sqlite-dev \
+    linux-headers
+
+# --------------------------------------------------
+# Install build dependencies
+# --------------------------------------------------
+RUN apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS \
+    autoconf \
+    make \
+    gcc \
+    g++ \
+    libc-dev
+
+# --------------------------------------------------
+# Install PHP Extensions
+# --------------------------------------------------
+RUN docker-php-ext-configure gd \
+        --with-freetype \
+        --with-jpeg \
+    && docker-php-ext-install \
+        pdo \
+        pdo_mysql \
+        mbstring \
+        zip \
+        exif \
+        pcntl \
+        bcmath \
+        intl \
+        gd \
+        opcache \
+        sockets
+
+# --------------------------------------------------
+# Install Redis Extension
+# --------------------------------------------------
+RUN pecl install redis \
+    && docker-php-ext-enable redis
+
+# Remove build deps
+RUN apk del .build-deps
+
+# --------------------------------------------------
+# Install Composer
+# --------------------------------------------------
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# --------------------------------------------------
+# Create Laravel structure
+# --------------------------------------------------
+RUN mkdir -p /var/www/html/codexsun/public
+
+# Create test file
+RUN echo "<?php echo 'Codexsun Test OK';" > /var/www/html/codexsun/public/index.php
+
+WORKDIR /var/www/html/codexsun
+
+EXPOSE 7021
+
+# --------------------------------------------------
+# Start PHP Built-in Server
+# --------------------------------------------------
+CMD ["php", "-S", "0.0.0.0:7021", "-t", "public"]

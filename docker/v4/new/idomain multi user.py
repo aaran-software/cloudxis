@@ -30,16 +30,12 @@ APPS = [
         "db": "codexsun_db",
     },
     {
-        "domain": "aaranerp.com",
+        "domain": "tmnext.in",
         "port": 7022,
-        "db": "aaranerp_db",
-    },
-    {
-        "domain": "thetirupur.com",
-        "port": 7023,
-        "db": "thetirupur_db",
+        "db": "tmnext_db",
     },
 ]
+
 
 # =====================================================
 # HELPERS
@@ -49,8 +45,10 @@ def run(cmd, cwd=None, check=True):
     print(f"\n▶ {cmd}")
     subprocess.run(cmd, shell=True, check=check, cwd=cwd)
 
+
 def sudo(cmd, check=True):
     run(f"sudo {cmd}", check=check)
+
 
 def mysql_exec(sql, check=True):
     cmd = [
@@ -63,6 +61,7 @@ def mysql_exec(sql, check=True):
     ]
     print("\n▶ mysql (TCP)")
     subprocess.run(cmd, input=sql, text=True, check=check)
+
 
 def database_exists(db):
     result = subprocess.run(
@@ -83,6 +82,7 @@ def database_exists(db):
     )
     return bool(result.stdout.strip())
 
+
 # =====================================================
 # SYSTEM SETUP (ONCE)
 # =====================================================
@@ -95,6 +95,7 @@ def system_setup():
     sudo("chown -R root:root /var/log/nginx /run/nginx")
     sudo("chmod 755 /var/log/nginx /run/nginx")
 
+
 # =====================================================
 # PER-APP STEPS
 # =====================================================
@@ -102,9 +103,11 @@ def system_setup():
 def add_host(domain):
     sudo(f"""bash -c "grep -q '{domain}' /etc/hosts || echo '127.0.0.1 {domain}' >> /etc/hosts" """)
 
+
 def clone_app(app_dir):
     if not os.path.isdir(f"{app_dir}/.git"):
         run(f"git clone {GIT_REPO} {app_dir}")
+
 
 def php_fpm_config(domain):
     sudo(
@@ -125,6 +128,7 @@ clear_env = no
 EOF'
 """
     )
+
 
 def nginx_config(domain, port, app_dir):
     sudo(
@@ -153,6 +157,7 @@ EOF'
 """
     )
     sudo(f"ln -sf /etc/nginx/sites-available/{domain} /etc/nginx/sites-enabled/{domain}")
+
 
 def rewrite_env(app_dir, domain, db):
     env_path = Path(app_dir) / ".env"
@@ -223,6 +228,25 @@ def laravel_setup(app_dir, db):
     sudo(f"chown -R {WEB_USER}:{WEB_USER} {app_dir}/storage {app_dir}/bootstrap/cache")
     sudo(f"chmod -R 775 {app_dir}/storage {app_dir}/bootstrap/cache")
 
+
+def restart_php():
+    print("\n🔄 Restarting PHP-FPM")
+    if is_systemd():
+        sudo(f"systemctl restart php{PHP_VERSION}-fpm")
+    else:
+        sudo("pkill php-fpm || true")
+        sudo(f"php-fpm{PHP_VERSION} -D")
+
+
+def restart_nginx():
+    print("\n🔄 Restarting Nginx")
+    if is_systemd():
+        sudo("systemctl restart nginx")
+    else:
+        sudo("pkill nginx || true")
+        sudo("nginx")
+
+
 # =====================================================
 # MAIN
 # =====================================================
@@ -235,7 +259,7 @@ def main():
         port = app["port"]
         db = app["db"]
 
-        app_dir = f"{APP_BASE}/{domain}/app"
+        app_dir = f"{APP_BASE}/{domain}"
         os.makedirs(app_dir, exist_ok=True)
 
         print(f"\n=== SETUP {domain} ===")
@@ -247,13 +271,10 @@ def main():
         rewrite_env(app_dir, domain, db)
         laravel_setup(app_dir, db)
 
-    sudo("nginx -t")
-    sudo("pkill php-fpm || true")
-    sudo("pkill nginx || true")
-    sudo(f"php-fpm{PHP_VERSION} -D")
-    sudo("nginx")
+        restart_nginx()
+        restart_php()
 
-    print("\n✅ ALL APPLICATIONS INSTALLED")
+print("\n✅ ALL APPLICATIONS INSTALLED")
 
 if __name__ == "__main__":
     main()

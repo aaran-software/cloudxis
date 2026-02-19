@@ -41,7 +41,12 @@ cd apps/backend
 cp .env.example .env
 ```
 
+```
+sudo pkill php-fpm8.4 || true
+sudo php-fpm8.4 -D
 
+sudo nginx -s reload
+```
 
 idomain.py
  ├─ clone repo

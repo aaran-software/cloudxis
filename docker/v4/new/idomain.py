@@ -22,7 +22,6 @@ DB_ROOT = {
 APPS = [
     {"domain": "tmnext.in", "port": 7021, "db": "tmnext_db"},
     {"domain": "logicx.in", "port": 7022, "db": "logicx_db"},
-    {"domain": "techmedia.in", "port": 7023, "db": "techmedia_db"},
 ]
 
 # =====================================================
