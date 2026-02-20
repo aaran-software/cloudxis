@@ -1,6 +1,6 @@
 services:
   tmwebs:
-    image: codexion:v6
+    image: codexsun:v6
     container_name: tmwebs
     ports:
       - "7020:7020"
