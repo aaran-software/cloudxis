@@ -1,6 +1,6 @@
 services:
   aaranwebs:
-    image: codexsun:v6
+    image: codexion:v5
     container_name: aaranwebs
     ports:
       - "80:80"
