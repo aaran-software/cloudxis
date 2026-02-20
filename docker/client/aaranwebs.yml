@@ -3,9 +3,12 @@ services:
     image: codexsun:v6
     container_name: aaranwebs
     ports:
-      - "7021:8000"
+      - "80:80"
+      - "443:443/tcp"
+      - "443:443/udp"
+      - "7021:80"
     volumes:
-        - ../../../cloud/aaranwebs:/app
+      - ../../../cloud/aaranwebs:/app
     networks:
       - codexion-network
     restart: unless-stopped
