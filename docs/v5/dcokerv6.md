@@ -14,13 +14,15 @@ docker build --no-cache -t codexsun:v6 -f docker/cloud/Dockerfile-frankenphp doc
 
 ## compose docker image
 ```
-docker compose -f docker/client/tmwebs.yml up -d
+docker compose -f docker/client/aaranwebs.yml up -d
 ```
 
 ```
-tmwebs
+aaranwebs
 ```
 
 ```
-docker exec -it tmwebs bash
+docker exec -it aaranwebs bash
 ```
+
+docker compose -f docker/client/traefik.yml up -d
