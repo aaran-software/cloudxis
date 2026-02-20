@@ -7,7 +7,7 @@
 
 set -e
 
-PROJECT_DIR="/var/www/codexsun"
+PROJECT_DIR="app/codexsun"
 REPO_URL="https://github.com/aaran-software/codexsun.git"
 PORT=8000
 

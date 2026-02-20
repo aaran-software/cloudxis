@@ -18,9 +18,9 @@ docker compose -f docker/client/tmwebs.yml up -d
 ```
 
 ```
-aaranwebs
+tmwebs
 ```
 
 ```
-docker exec -it aaranwebs bash
+docker exec -it tmwebs bash
 ```
