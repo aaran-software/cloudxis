@@ -1,0 +1,38 @@
+{
+    # Email used for Let's Encrypt
+    email admin@tmnext.in
+
+    # Enable HTTP/3
+    servers {
+        protocol {
+            experimental_http3
+        }
+    }
+}
+
+# ---------------------------------------------------
+# Multi-Domain Configuration
+# ---------------------------------------------------
+
+tmnext.in, logicx.in, techmedia.in {
+
+    root * /var/www/html/public
+    php_server
+
+    encode gzip zstd
+
+    # Security headers
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        X-XSS-Protection "1; mode=block"
+        -Server
+    }
+
+    # Prevent access to hidden files
+    @forbidden {
+        path /.*
+    }
+    respond @forbidden 404
+}
