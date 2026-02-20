@@ -14,7 +14,7 @@ docker build --no-cache -t codexsun:v6 -f docker/cloud/Dockerfile-frankenphp doc
 
 ## compose docker image
 ```
-docker compose -f docker/client/aaranwebs.yml up -d
+docker compose -f docker/client/tmwebs.yml up -d
 ```
 
 ```
