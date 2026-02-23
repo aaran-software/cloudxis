@@ -1,0 +1,38 @@
+FROM dunglas/frankenphp:latest
+
+# --------------------------------------------------
+# Install system packages
+# --------------------------------------------------
+RUN apt-get update && apt-get install -y \
+    git unzip curl nodejs npm nano \
+    libzip-dev zip \
+    && docker-php-ext-install zip pdo pdo_mysql \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# --------------------------------------------------
+# Install PHP Extensions
+# --------------------------------------------------
+RUN install-php-extensions \
+    redis \
+    bcmath \
+    intl \
+    opcache \
+    pcntl
+
+# --------------------------------------------------
+# Install Composer
+# --------------------------------------------------
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# --------------------------------------------------
+# Set working directory
+# --------------------------------------------------
+WORKDIR /app
+
+# Clean default content
+RUN rm -rf /app/*
+
+
+EXPOSE 8000 7021 7022
+

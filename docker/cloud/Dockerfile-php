@@ -1,0 +1,116 @@
+FROM php:8.4-fpm-alpine
+
+# --------------------------------------------------
+# Install runtime packages
+# --------------------------------------------------
+RUN apk add --no-cache \
+    git curl unzip bash supervisor nano sudo \
+    nodejs npm \
+    icu-dev oniguruma-dev libzip-dev \
+    libpng-dev libjpeg-turbo-dev freetype-dev \
+    libxml2-dev sqlite-dev linux-headers
+
+
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# --------------------------------------------------
+# Install build dependencies
+# --------------------------------------------------
+RUN apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS autoconf make gcc g++ libc-dev
+
+# --------------------------------------------------
+# Install PHP Extensions
+# --------------------------------------------------
+RUN docker-php-ext-configure gd \
+        --with-freetype \
+        --with-jpeg \
+    && docker-php-ext-install \
+        pdo pdo_mysql pdo_sqlite mbstring zip exif pcntl \
+        bcmath intl gd opcache sockets
+
+# Redis Extension
+RUN pecl install redis && docker-php-ext-enable redis
+
+# Remove build dependencies
+RUN apk del .build-deps
+
+# --------------------------------------------------
+# Create non-root devops user
+# --------------------------------------------------
+RUN addgroup -g 1000 devops && \
+    adduser -D -u 1000 -G devops devops
+
+# --------------------------------------------------
+# Configure php-fpm to run as devops
+# --------------------------------------------------
+RUN sed -i 's/user = www-data/user = devops/' /usr/local/etc/php-fpm.d/www.conf && \
+    sed -i 's/group = www-data/group = devops/' /usr/local/etc/php-fpm.d/www.conf && \
+    sed -i 's/;listen.mode = 0660/listen.mode = 0666/' /usr/local/etc/php-fpm.d/www.conf
+
+# --------------------------------------------------
+# Production PHP Settings
+# --------------------------------------------------
+RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/production.ini && \
+    echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/production.ini && \
+    echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/production.ini && \
+    echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/production.ini
+
+# --------------------------------------------------
+# Install Composer
+# --------------------------------------------------
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# --------------------------------------------------
+# Create Supervisor Config
+# --------------------------------------------------
+RUN echo "[supervisord]" > /etc/supervisord.conf && \
+    echo "nodaemon=true" >> /etc/supervisord.conf && \
+    echo "" >> /etc/supervisord.conf && \
+    echo "[program:php-fpm]" >> /etc/supervisord.conf && \
+    echo "command=php-fpm -F" >> /etc/supervisord.conf && \
+    echo "autorestart=true" >> /etc/supervisord.conf && \
+    echo "" >> /etc/supervisord.conf && \
+    echo "[program:horizon]" >> /etc/supervisord.conf && \
+    echo "directory=/var/www/html/codexsun" >> /etc/supervisord.conf && \
+    echo "command=php artisan horizon" >> /etc/supervisord.conf && \
+    echo "autorestart=true" >> /etc/supervisord.conf && \
+    echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf && \
+    echo "stderr_logfile=/dev/fd/2" >> /etc/supervisord.conf && \
+    echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf && \
+    echo "stderr_logfile_maxbytes=0" >> /etc/supervisord.conf
+
+# --------------------------------------------------
+# Healthcheck
+# --------------------------------------------------
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+CMD php -r "exit(extension_loaded('pdo_sqlite') ? 0 : 1);"
+
+# --------------------------------------------------
+# Set Working Directory
+# --------------------------------------------------
+WORKDIR /var/www/html
+
+# --------------------------------------------------
+# Copy Entrypoint & Update Script
+# --------------------------------------------------
+COPY docker-entrypoint.sh /var/www/html/entrypoint.sh
+COPY codexsun-update.sh /var/www/html/iupdate.sh
+
+# --------------------------------------------------
+# Fix Permissions
+# --------------------------------------------------
+RUN chown -R devops:devops /var/www/html && \
+    chmod +x /var/www/html/entrypoint.sh && \
+    chmod +x /var/www/html/iupdate.sh
+
+# --------------------------------------------------
+# Switch to non-root user
+# --------------------------------------------------
+USER devops
+
+# --------------------------------------------------
+# Expose PHP-FPM Port
+# --------------------------------------------------
+EXPOSE 9000

@@ -41,7 +41,12 @@ cd apps/backend
 cp .env.example .env
 ```
 
+```
+sudo pkill php-fpm8.4 || true
+sudo php-fpm8.4 -D
 
+sudo nginx -s reload
+```
 
 idomain.py
  ├─ clone repo
@@ -56,3 +61,47 @@ ideploy.py
  ├─ npm update + build
  ├─ chown runtime dirs → www-data
  └─ php artisan optimize
+
+
+
+```
+sudo nano shop.thetirupurtextiles.com
+```
+
+```
+server {
+    listen 80;
+    server_name shop.thetirupurtextiles.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:7021;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Connection "";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 300;
+        proxy_connect_timeout 300;
+        proxy_send_timeout 300;
+    }
+}
+```
+
+
+sudo ln -s /etc/nginx/sites-available/shop.thetirupurtextiles.com /etc/nginx/sites-enabled/
+
+
+```
+sudo certbot --nginx
+```
+
+```
+sudo nginx -t
+```
+
+```
+sudo systemctl reload nginx
+```

@@ -22,9 +22,8 @@ def install_packages():
 
     sudo(
         "apt install -y "
-        "git nginx "
+        "git "
         f"php{PHP_VERSION} "
-        f"php{PHP_VERSION}-fpm "
         f"php{PHP_VERSION}-cli "
         f"php{PHP_VERSION}-common "
         f"php{PHP_VERSION}-bcmath "
@@ -37,12 +36,19 @@ def install_packages():
         f"php{PHP_VERSION}-sqlite3 "
         f"php{PHP_VERSION}-xml "
         f"php{PHP_VERSION}-zip "
-        f"php{PHP_VERSION}-opcache "
         f"php{PHP_VERSION}-redis "
         "imagemagick "
         "sqlite3"
     )
 
+def install_frankenphp():
+    print("\n=== Installing FrankenPHP ===")
+    sudo(
+        "curl -L https://github.com/dunglas/frankenphp/releases/latest/download/frankenphp-linux-x86_64 "
+        "-o /usr/local/bin/frankenphp"
+    )
+    sudo("chmod +x /usr/local/bin/frankenphp")
+    run("frankenphp --version")
 
 def install_composer():
     run("curl -sS https://getcomposer.org/installer -o composer-setup.php")
@@ -51,20 +57,10 @@ def install_composer():
     run("composer --version")
 
 
-def start_services():
-    # Docker-safe service start
-    sudo("pkill php-fpm8.4 || true")
-    sudo("pkill nginx || true")
-
-    sudo("php-fpm8.4 -D")
-    sudo("nginx")
-
-
 def main():
     print("\n=== DOCKER-SAFE PACKAGE INSTALL (PHP 8.4) ===")
     install_packages()
     install_composer()
-    start_services()
     print("\n✅ PHP 8.4 + NGINX INSTALLED AND STARTED")
 
 

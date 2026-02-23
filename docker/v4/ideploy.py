@@ -10,7 +10,6 @@ from pathlib import Path
 # ==================================================
 APP_DIR = Path.cwd()
 APP_USER = "devops"
-
 LOCK_FILE = Path("/tmp/ideploy.lock")
 
 # ==================================================
@@ -19,6 +18,9 @@ LOCK_FILE = Path("/tmp/ideploy.lock")
 def run(cmd):
     print(f"\n▶ {cmd}")
     subprocess.check_call(cmd, shell=True, cwd=APP_DIR)
+
+def ask(question):
+    return input(f"{question} (y/N): ").strip().lower() == "y"
 
 def info(msg):
     print(f"\nℹ️  {msg}")
@@ -70,34 +72,43 @@ def git_update():
 # ==================================================
 def npm_build():
     if not (APP_DIR / "package.json").exists():
-        info("No package.json, skipping npm")
+        info("No package.json found, skipping npm")
         return
 
-    info("Building frontend")
-
-    try:
-        run("npm run build")
-    except subprocess.CalledProcessError:
-        info("Build failed — running npm install")
-        run("npm install")
-        run("npm run build")
+    if ask("Run npm build?"):
+        try:
+            run("npm run build")
+        except subprocess.CalledProcessError:
+            info("Build failed — running npm install")
+            run("npm install")
+            run("npm run build")
+    else:
+        info("Skipped npm build")
 
 # ==================================================
 # LARAVEL
 # ==================================================
+def run_migrations():
+    if not (APP_DIR / "artisan").exists():
+        info("Not a Laravel app, skipping migration")
+        return
+
+    if ask("Run database migration?"):
+        run("php artisan down || true")
+        run("php artisan migrate --force")
+        run("php artisan up")
+    else:
+        info("Skipped migrations")
+
 def laravel_optimize():
     if not (APP_DIR / "artisan").exists():
-        info("Not a Laravel app, skipping optimize")
         return
 
     info("Optimizing Laravel")
-
-    run("php artisan down || true")
     run("php artisan optimize:clear")
     run("php artisan config:cache")
     run("php artisan route:cache")
     run("php artisan view:cache")
-    run("php artisan up")
 
 # ==================================================
 # MAIN
@@ -115,6 +126,7 @@ def main():
     try:
         git_update()
         npm_build()
+        run_migrations()
         laravel_optimize()
     finally:
         unlock()
