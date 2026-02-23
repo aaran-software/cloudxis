@@ -1,4 +1,4 @@
-
+f
 ## compose docker image
 ```
 docker compose -f docker/client/techmedia-in.yml up -d
