@@ -1,0 +1,16 @@
+services:
+  cotton_codexsun_com:
+    image: codexion:v5
+    container_name: cotton_codexsun_com
+    ports:
+      - "8004:8000"
+    volumes:
+      - ../../../cloud/cotton_codexsun_com:/home/devops/cloud
+    networks:
+      - codexion-network
+    restart: unless-stopped
+    tty: true
+
+networks:
+  codexion-network:
+    external: true
